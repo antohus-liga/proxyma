@@ -9,7 +9,7 @@
 
 Sign up, create an organisation, and you get your own proxy instance, running in its own container, ready to be configured from a web dashboard. No servers to set up, no config files to hand-edit, no digging through terminals to see what's going on. Set up your rate limits and routes, then watch the traffic roll in live.
 
-<sub>The name comes from the Latin *proxima* ("nearest"). That's the idea: a proxy that sits right next to your API and stays out of your way.
+<sub>The name comes from the Latin *proxima* ("nearest"). That's the idea: a proxy that's always close to you and always ready.
 
 ## Who is this for?
 
@@ -152,7 +152,7 @@ Details are in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Contributing
 
-Contributions are welcome once the project is off the ground. Until then, feel free to open an issue with ideas or questions. A proper `CONTRIBUTING.md` will come later.
+Small contributions on the existing stuff are welcome once the project is off the ground. Until then, feel free to open an issue with ideas or questions.
 
 ## License
 
