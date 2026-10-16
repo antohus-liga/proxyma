@@ -309,9 +309,7 @@ A proxy's credentials grant no access outside its own prefix (plus the JetStream
 | Audit trail | PostgreSQL | Written in the same transaction as the change it records |
 | Request logs | ClickHouse | 30-day TTL |
 | In-flight config, acks, recent logs | NATS JetStream | Transient delivery, not a record |
-| Blocked-IP list | Proxy memory | See below |
-
-**Blocked IPs.** The proxy keeps its list of blocked IPs in memory. Block and unblock events are emitted as log entries (`action = blocked`), so they appear in the dashboard, but the list itself is not persisted. A proxy restart clears it, which is an accepted limitation for this scope.
+| Blocked-IP list | Proxy memory + PostgreSQL | Loaded into proxy's memory on startup |
 
 ## 9. Failure behaviour
 
