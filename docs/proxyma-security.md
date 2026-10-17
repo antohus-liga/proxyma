@@ -93,6 +93,13 @@ The browser's `EventSource` can't send an `Authorization` header, and putting th
 
 Authorization is enforced **on the server, on every request**, never in the dashboard. The dashboard hides buttons for convenience only.
 
+### Ownership and membership
+
+- A user can **own at most one** organisation, but can be a **member of many**, by accepting invitations.
+- Roles belong to the **membership**, not the account. The same person can be an owner in one org, a co-owner in another and a member in a third.
+- Every request is checked against the user's membership in the org it targets, so permissions in one org never carry over to another.
+- The dashboard needs an org switcher, and org IDs appear in every org-scoped URL.
+
 ### Role matrix
 
 | Action | Member | Co-owner | Owner |
@@ -106,7 +113,7 @@ Authorization is enforced **on the server, on every request**, never in the dash
 | Assign roles | ❌ | ✅ | ✅ |
 | Delete the organisation | ❌ | ❌ | ✅ |
 
-**Default protections for role changes**:
+**Protections for role changes:**
 
 - Nobody can remove or demote the **owner**.
 - A co-owner can manage members, but **cannot remove or demote another co-owner**. Only the owner can.
@@ -177,21 +184,38 @@ Containers are created by the backend with these settings:
 
 The backend **never** takes the image, command, environment, volumes or capabilities from user input. The only per-org values are the org ID and generated credentials, and a user cannot influence those. Reconciliation only touches containers carrying the `proxyma.managed` label.
 
-### Exposure
+### Exposure (reaching a proxy)
 
-Each proxy needs a host port so traffic can reach it. **Default:** the backend allocates one port per org from a configurable range and binds it to `127.0.0.1` unless the operator explicitly changes the bind address. This keeps a local install from accidentally exposing proxies to the network.
+Each proxy needs a host port so traffic can reach it. The backend allocates one port per org from a configurable range (for example 20000 to 20999) and shows the resulting URL in the dashboard.
 
-### Upstream restrictions (SSRF-style risk)
+**Default:** the port is bound to `127.0.0.1`, so a proxy is reachable from the same machine only. To make proxies reachable from the local network, the operator sets the bind address to `0.0.0.0` or a specific LAN address. That is a deliberate operator choice, not something an org can change.
 
-Users choose where the proxy forwards traffic, which means a user could point a route at something they shouldn't reach, such as the Docker host, a cloud metadata address or an internal service.
+### Upstreams: reaching localhost and the local network
 
-**Defaults:**
+Proxyma is local-first, so the common case is a proxy forwarding to a service on the **same machine** (`localhost:3000`) or on the **local network** (`192.168.1.20:8080`). Both need to work.
 
-- The proxy container's network can't resolve or reach the backend, PostgreSQL or ClickHouse.
-- Route validation **rejects upstreams that resolve to loopback, link-local or private ranges**, unless the operator sets `PROXYMA_ALLOW_PRIVATE_UPSTREAMS=true`. This is an operator setting, not an org setting, because proxying a private service is the right thing for many local installs.
-- The proxy checks the address **at connection time**, not just at validation time, to resist DNS rebinding.
-- Upstream URLs containing credentials (`https://user:pass@host`) are rejected, so secrets don't end up in config, logs or the database.
-- A route can't point at the proxy's own listener (prevents forwarding loops).
+| Upstream | How it works |
+|---|---|
+| **LAN or other private address** | Works through the container's normal outbound network access. |
+| **`localhost`, `127.0.0.1`, `::1`** | Inside a container, `localhost` means the container itself, which is never what the user wants. The backend starts each proxy with `host.docker.internal` mapped to the host (`--add-host host.docker.internal:host-gateway`), and the proxy treats these three hosts as **"this machine"**, rewriting them to that name. The dashboard shows a hint next to localhost upstreams explaining this. |
+| **Public hostnames** | Normal outbound access. |
+
+**Caveat to document for users (Linux):** a service on the host that listens only on `127.0.0.1` is **not** reachable from a container. It has to listen on `0.0.0.0` or on the Docker bridge address. Docker Desktop on macOS and Windows doesn't have this restriction.
+
+Because proxies can reach the host and the LAN **by design**, the guard rails are different from a strict "no private ranges" rule:
+
+| Rule | Where it's enforced |
+|---|---|
+| **Always denied:** link-local addresses (`169.254.0.0/16`, `fe80::/10`, which covers cloud metadata endpoints), the unspecified address (`0.0.0.0`) and multicast | Backend at validation time, proxy at connection time |
+| **Always denied:** Proxyma's own infrastructure, meaning the backend, NATS, PostgreSQL, ClickHouse and the Docker API, as `address:port` pairs. The backend builds this list from its own settings and gives it to each proxy as an environment variable at spawn time, so no org can change it | Backend at validation time, proxy at connection time |
+| **Denied:** a route that points at the proxy's own listener (forwarding loop) | Backend at validation time |
+| **Rejected:** upstream URLs containing credentials (`https://user:pass@host`) | Backend and proxy at validation time |
+| **Optional strict mode:** the operator sets `PROXYMA_ALLOW_PRIVATE_UPSTREAMS=false` to also deny loopback, private and host addresses | Backend at validation time, proxy at connection time |
+
+- The proxy checks the **resolved address at connection time**, not only when the config is saved, to resist DNS rebinding.
+- Proxy containers sit on their own Docker network that **can't reach** the backend, PostgreSQL or ClickHouse by name. The deny list above covers the remaining path, which is through the host.
+- In `docker-compose.yml`, infrastructure ports should be bound to `127.0.0.1` or not published at all. Services bound only to loopback on the host generally can't be reached from containers anyway, which is a useful second layer.
+- `PROXYMA_ALLOW_PRIVATE_UPSTREAMS` defaults to `true` for local installs. Anyone running Proxyma on a shared server should set it to `false`.
 
 ## 8. NATS security
 
@@ -292,6 +316,7 @@ The malicious byte-sequence detection catches obvious patterns. It **can** be by
 | Risk | Why we accept it |
 |---|---|
 | Docker socket gives host root | Needed to spawn containers. Mitigated by recommendations in section 10. |
+| Proxies can reach the host and the local network | That is the product's local-first use case. Infrastructure ports are on a deny list, and a strict mode exists for shared servers. |
 | Isolation relies on one NATS account with per-user permissions | Simpler than per-org accounts. Covered by tests that try to cross org boundaries. |
 | A restart can lose a very recent ban before the backend persists it | Explained in [`architecture.md`](architecture.md). |
 | Detection is easy to bypass | It's basic by design. |
@@ -306,6 +331,7 @@ If anyone ever wants to run this on a shared or public server, at a minimum:
 
 - [ ] Put TLS in front of the dashboard and backend, and enable TLS on NATS
 - [ ] Use rootless Docker or a Docker socket proxy
+- [ ] Set `PROXYMA_ALLOW_PRIVATE_UPSTREAMS=false` unless orgs genuinely need to reach internal services
 - [ ] Keep the proxy bind address, database ports and NATS port off public interfaces
 - [ ] Rotate all default secrets and keep them out of the environment of other containers
 - [ ] Set resource limits on the host and enable log rotation
