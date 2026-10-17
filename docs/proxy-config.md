@@ -254,9 +254,7 @@ What *is* config is the **policy** that creates automatic bans:
 
 **Defaults** if the user enables auto-block without touching the rules: the two rules from the example above.
 
-Every ban, whether automatic or manual, records who or what caused it, when, the reason and the expiry, and shows up in the logs and (for manual bans) the audit trail.
-
-> How the proxy learns about new, changed or removed bans while running is documented in [`architecture.md`](architecture.md), since it is part of the data flow rather than the config schema.
+> Which IPs are banned right now is **not** part of this document. Bans change constantly and have their own lifecycle: PostgreSQL holds them, JetStream delivers them, and the proxy keeps an in-memory copy that is rebuilt from JetStream on every start. See "Flow: IP bans" in [`architecture.md`](architecture.md).
 
 ## 9. Defaults for a new organisation
 
