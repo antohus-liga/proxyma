@@ -1,0 +1,313 @@
+# Security
+
+> Status: design stage. This describes the intended security design. Nothing here is implemented yet, and items are marked **default** where the choice is a sensible starting point rather than a settled decision.
+
+## 1. Scope and goals
+
+Proxyma is a small-team tool, hosted locally, and **not** a production-scale or hardened product. The goal is to be honest and sensible: get the fundamentals right, isolate organisations from each other, and document the risks that remain.
+
+**What we protect**
+
+| Asset | Why it matters |
+|---|---|
+| Accounts and credentials | Access to an org means control over its traffic |
+| Proxy configuration | Changing it changes how an org's traffic is routed and filtered |
+| Request logs | Contain client IPs and request paths |
+| Audit trail | Must be trustworthy to answer "who did this?" |
+| The host machine | The backend can create containers, which is powerful |
+
+**What we assume**
+
+- The deployment is local or private, not exposed to the public internet.
+- The host, Docker, PostgreSQL, ClickHouse and NATS are run by the person operating Proxyma and are trusted.
+- Org members are semi-trusted: they can change config but not manage people.
+
+**Out of scope for the MVP**
+
+- Protection against a compromised host or Docker daemon
+- DDoS resilience
+- A full WAF, TLS termination, compliance (GDPR tooling, SOC 2, and so on)
+
+## 2. Trust boundaries
+
+```mermaid
+flowchart LR
+    subgraph Untrusted
+        INT[Internet clients<br/>sending traffic]
+        BR[User browsers]
+    end
+
+    subgraph Proxy[Per-org proxy containers]
+        PX[Proxy<br/>handles hostile input]
+    end
+
+    subgraph Core[Trusted core]
+        BE[Backend]
+        N{{NATS}}
+        PG[(PostgreSQL)]
+        CH[(ClickHouse)]
+        D[Docker daemon]
+    end
+
+    UP[Upstream services]
+
+    INT -- hostile traffic --> PX
+    PX -- forwards --> UP
+    BR -- JWT-authenticated --> BE
+    PX <-- scoped credentials --> N
+    N <--> BE
+    BE --> PG
+    BE --> CH
+    BE -- docker socket --> D
+```
+
+Two boundaries matter most:
+
+1. **Internet to proxy.** Everything arriving here is hostile by default. The proxy is the part of the system that parses attacker-controlled bytes.
+2. **Proxy to the core.** A proxy is the most exposed component, so we assume it **can be compromised** and make sure that doesn't give access to anything beyond its own org's NATS subjects.
+
+Everything a proxy sends to the backend (logs, acks, ban events, heartbeats) is treated as **untrusted input** and validated.
+
+## 3. Authentication
+
+| Topic | Design |
+|---|---|
+| Passwords | Hashed with **Argon2id** (Spring Security supports it). Never stored or logged in plain text. |
+| Minimum password rules | At least 10 characters, checked against a short list of common passwords. No composition rules. |
+| Tokens | JWT. A short-lived **access token** (about 15 minutes) and a longer-lived **refresh token** (about 7 days), stored hashed server-side so it can be revoked. |
+| Where tokens live in the browser | **Default:** access token in memory only, refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. This keeps tokens out of reach of injected scripts. |
+| Logout | Revokes the refresh token on the server. |
+| JWT signing | Strong secret or key loaded from the environment, never committed. Tokens carry only user ID and expiry. Roles are **not** put in the token, they're looked up on each request. |
+| Login protection | Rate limiting on login, signup and invite endpoints, per IP and per account. Generic error messages so the response doesn't reveal whether an email exists. |
+
+### SSE and authentication
+
+The browser's `EventSource` can't send an `Authorization` header, and putting the main access token in a URL would leak it into logs. So:
+
+1. The dashboard calls `POST /orgs/{id}/logs/ticket` with its normal authentication.
+2. The backend checks the user's membership and returns a **single-use ticket** valid for about 30 seconds.
+3. The dashboard opens `GET /orgs/{id}/logs/stream?ticket=...`.
+4. The backend consumes the ticket, binds the stream to that user and org, and ends the stream when the user's session is revoked or their membership is removed.
+
+## 4. Authorization
+
+Authorization is enforced **on the server, on every request**, never in the dashboard. The dashboard hides buttons for convenience only.
+
+### Role matrix
+
+| Action | Member | Co-owner | Owner |
+|---|---|---|---|
+| View proxy config | ✅ | ✅ | ✅ |
+| Edit proxy config | ✅ | ✅ | ✅ |
+| View live logs and history | ✅ | ✅ | ✅ |
+| View audit trail | ✅ | ✅ | ✅ |
+| Ban / unban IPs manually | ✅ | ✅ | ✅ |
+| Invite / remove people | ❌ | ✅ | ✅ |
+| Assign roles | ❌ | ✅ | ✅ |
+| Delete the organisation | ❌ | ❌ | ✅ |
+
+**Default protections for role changes**:
+
+- Nobody can remove or demote the **owner**.
+- A co-owner can manage members, but **cannot remove or demote another co-owner**. Only the owner can.
+- Users can't change their own role.
+- Transferring ownership is not in the MVP.
+
+### Org scoping
+
+The most common multi-tenant bug is letting a user touch another org's data by changing an ID in a request. To prevent it:
+
+- Every org-scoped endpoint resolves the user's **membership for that org first** and rejects the request if none exists. Returning `404` rather than `403` for orgs the user doesn't belong to avoids revealing which IDs exist.
+- Queries to PostgreSQL always include `org_id`, and `org_id` for ClickHouse queries comes from the verified membership, **never** from a client-supplied filter.
+- Automated tests check that user A cannot read or modify anything belonging to org B across every endpoint.
+
+### Invitations
+
+- Invite links contain a random, unguessable token, stored hashed.
+- Tokens are **single-use** and expire (default: 7 days).
+- Only the invited email address can accept, and only while logged in as that account.
+- An invitation can be revoked by an owner or co-owner at any time.
+
+## 5. Audit trail
+
+The audit trail exists to answer "who did this?", so it must be trustworthy.
+
+| Property | Design |
+|---|---|
+| What is recorded | Config changes (with the version), role changes, invites and removals, manual bans and unbans, and failed permission checks |
+| Fields | Org, acting user, action, target, before/after summary, timestamp, source IP |
+| Written when | In the **same database transaction** as the change itself, so a change can't happen without its record |
+| Append-only | The application exposes no update or delete operation for audit rows, and the application's database role has no `UPDATE`/`DELETE` privilege on that table |
+| Retention | Kept for the life of the org |
+| Never recorded | Passwords, tokens, or other secrets |
+
+**Honest limit:** anyone with direct database admin access can still alter the table. The trail protects against org users, not against the host operator.
+
+Automatic actions, such as auto-bans, are recorded with the actor `system (rule: ...)` so they can be told apart from human ones.
+
+## 6. Tenant isolation
+
+Isolation is enforced in **layers**, so no single mistake exposes another org.
+
+| Layer | Mechanism |
+|---|---|
+| **Compute** | One container per org, with limits (see section 7) |
+| **Network** | Proxy containers share a Docker network that can reach NATS and the outside world, but **not** PostgreSQL, ClickHouse or the backend |
+| **Messaging** | Per-org NATS credentials limited to `org.<id>.*` subjects (section 8) |
+| **Bans** | Proxies get read-only access to their own org's keys in the `BANS` bucket |
+| **Application data** | Every query is scoped by `org_id` taken from the verified membership |
+| **Logs** | ClickHouse queries always filter on `org_id`, and the table is ordered by it |
+
+## 7. Proxy containers
+
+### Hardening
+
+Containers are created by the backend with these settings:
+
+| Setting | Value |
+|---|---|
+| User | Non-root |
+| Filesystem | Read-only root filesystem, small `tmpfs` for scratch |
+| Capabilities | Drop all |
+| Privilege escalation | `no-new-privileges` |
+| Resources | Memory, CPU and process-count limits per container |
+| Restart policy | `unless-stopped` |
+| Labels | `proxyma.managed=true`, `proxyma.org=<id>`, used by reconciliation |
+| Image | A fixed image name from backend configuration |
+
+The backend **never** takes the image, command, environment, volumes or capabilities from user input. The only per-org values are the org ID and generated credentials, and a user cannot influence those. Reconciliation only touches containers carrying the `proxyma.managed` label.
+
+### Exposure
+
+Each proxy needs a host port so traffic can reach it. **Default:** the backend allocates one port per org from a configurable range and binds it to `127.0.0.1` unless the operator explicitly changes the bind address. This keeps a local install from accidentally exposing proxies to the network.
+
+### Upstream restrictions (SSRF-style risk)
+
+Users choose where the proxy forwards traffic, which means a user could point a route at something they shouldn't reach, such as the Docker host, a cloud metadata address or an internal service.
+
+**Defaults:**
+
+- The proxy container's network can't resolve or reach the backend, PostgreSQL or ClickHouse.
+- Route validation **rejects upstreams that resolve to loopback, link-local or private ranges**, unless the operator sets `PROXYMA_ALLOW_PRIVATE_UPSTREAMS=true`. This is an operator setting, not an org setting, because proxying a private service is the right thing for many local installs.
+- The proxy checks the address **at connection time**, not just at validation time, to resist DNS rebinding.
+- Upstream URLs containing credentials (`https://user:pass@host`) are rejected, so secrets don't end up in config, logs or the database.
+- A route can't point at the proxy's own listener (prevents forwarding loops).
+
+## 8. NATS security
+
+### Credentials
+
+**Default:** NATS **decentralised JWT authentication**.
+
+- The backend holds an account signing key and issues a **user JWT per org** on org creation, with the exact permissions listed in [`architecture.md`](architecture.md#7-nats-subject-layout).
+- No NATS server restart or config edit is needed to add or remove an org.
+- Revoking an org's credentials on deletion is done by adding the user to the account's revocation list.
+
+Alternatives considered:
+
+| Option | Why not |
+|---|---|
+| Static config file per org | Needs a config reload on every org change |
+| Auth callout (backend decides on each connect) | A proxy couldn't reconnect while the backend is down, which defeats the point of the control/data plane split |
+| One NATS account per org | Strongest isolation, but sharing streams and the KV bucket across accounts needs exports and imports, which adds a lot of complexity for this scope |
+
+### Details that are easy to miss
+
+- **Reply inboxes.** By default, NATS clients use a shared `_INBOX.>` prefix, which would let one proxy listen to another's replies. Each proxy is configured with a custom inbox prefix, `_INBOX.<org_id>`, and its permissions only allow that prefix.
+- **JetStream API access.** A proxy is only allowed the specific JetStream API subjects it needs, for its own consumers and its own KV keys, not the whole `$JS.API.>` tree.
+- **Limits.** Per-connection limits on payload size and subscription count.
+- **Transport.** TLS between NATS and clients is a recommended setting for any non-local use. It's off by default for a local install.
+
+### Delivering credentials to the container
+
+**Recommended:** the backend creates the container, copies the credentials into it as a file on a `tmpfs` mount, then starts it. **Acceptable for the MVP:** pass them as an environment variable. Be aware that anyone with Docker access can see environment variables through `docker inspect`.
+
+### Treating proxy messages as untrusted
+
+If one proxy's credentials leak, the attacker can send messages **as that org's proxy**. The backend therefore:
+
+- Validates every message's shape and size and drops anything malformed.
+- Checks that a ban event contains a valid IP, respects `trusted_ips`, and stays under the per-org cap.
+- Never trusts an `org_id` inside a message. The org always comes from the **subject** the message arrived on.
+- Parameterises every ClickHouse insert.
+
+Worst case for a leaked credential is that an attacker can inject fake logs and ban events for **that one org**, and read that org's config.
+
+## 9. Logs contain attacker-controlled data
+
+Request paths, user agents and similar fields come straight from hostile clients, so the logs will contain whatever an attacker chooses to send.
+
+- The dashboard renders log fields as **plain text only**. It never uses `v-html` or injects log content into HTML. Vue escapes by default, and the rule is to keep it that way.
+- Log fields have maximum lengths enforced by the proxy and again by the backend.
+- The proxy **does not log request bodies or header values**.
+- **Default:** the proxy logs the **path without the query string**, since query strings often carry tokens and keys. The `rule` field says which rule matched, so the payload doesn't need to be logged.
+- IP addresses are personal data under some laws. The 30-day TTL limits how long they're kept, and the doc on operating Proxyma should mention it.
+
+## 10. The Docker socket
+
+The backend needs the Docker API to create and remove containers. **Access to the Docker socket is effectively root on the host.** If the backend is compromised, so is the machine. This is the biggest single risk in the design, and we state it plainly.
+
+Mitigations, from simplest to strongest:
+
+| Level | Measure |
+|---|---|
+| Always | The backend only calls a small set of operations (create, start, stop, remove, inspect, list) with fixed, server-built parameters. No user input reaches container creation. |
+| Recommended | Run Docker in **rootless mode**, so the socket doesn't grant host root. |
+| Recommended | Put a **socket proxy** (such as `tecnativa/docker-socket-proxy`) between the backend and Docker so only the required API endpoints are allowed. |
+| Operational | Don't expose the backend to untrusted networks. |
+
+For local development the plain socket is fine. For anything shared, use rootless Docker or a socket proxy.
+
+## 11. The proxy itself (hostile input)
+
+The proxy parses attacker-controlled bytes, which is why it's written in Rust and built on a mature HTTP library rather than custom parsing.
+
+| Risk | Mitigation |
+|---|---|
+| Slow or oversized requests | Timeouts for headers, body and idle connections. Limits on header size, header count and request-line length. |
+| Memory exhaustion by IP rotation | The rate-limit counter table and the ban set are **bounded**. Stale entries are evicted, and the active-ban cap (10,000 per org) applies. |
+| Request smuggling and malformed requests | Handled by the HTTP library. Hop-by-hop headers are stripped before forwarding. Ambiguous requests are rejected. |
+| Header spoofing | `X-Forwarded-For` is only trusted if the org sets `client_ip.source` to `x_forwarded_for`. The default uses the connection's address. |
+| Collateral bans | Users behind a shared IP (an office or NAT) share a fate. `trusted_ips` and ban expiry reduce the damage, and the dashboard makes unbanning easy. |
+| Regex denial of service | Detection uses literal matching only, so there are no user-supplied regexes to exploit. |
+| Config abuse | Validation limits on routes, sequences and sizes (see [`proxy-config.md`](proxy-config.md#10-validation-rules)). |
+
+### What detection does and doesn't do
+
+The malicious byte-sequence detection catches obvious patterns. It **can** be bypassed by encodings it doesn't handle, by payloads split across fields, or by anything beyond the scanned body size. It should be treated as a low-cost speed bump and a source of useful log data, not as a security boundary.
+
+## 12. Backend and dashboard hardening
+
+- **Input validation** on every endpoint, with schema validation for the proxy config.
+- **Parameterised queries only**, no string-built SQL.
+- **CORS** restricted to the dashboard's origin.
+- **CSRF**: because the refresh cookie is `SameSite=Strict`, and state-changing endpoints require the in-memory access token in a header, cross-site requests can't act on a user's behalf.
+- **Security headers** on the dashboard: a strict Content-Security-Policy, `X-Content-Type-Options`, `Referrer-Policy` and clickjacking protection.
+- **Secrets** (JWT key, NATS signing key, database passwords) come from environment variables or files and are never committed. A `.env.example` documents them without values.
+- **Errors** returned to clients don't include stack traces or internal details.
+- **Dependencies**: Dependabot (or similar) enabled, `cargo audit` for Rust, and a dependency check for Gradle and Bun, run in CI.
+
+## 13. Known risks we accept
+
+| Risk | Why we accept it |
+|---|---|
+| Docker socket gives host root | Needed to spawn containers. Mitigated by recommendations in section 10. |
+| Isolation relies on one NATS account with per-user permissions | Simpler than per-org accounts. Covered by tests that try to cross org boundaries. |
+| A restart can lose a very recent ban before the backend persists it | Explained in [`architecture.md`](architecture.md). |
+| Detection is easy to bypass | It's basic by design. |
+| Audit trail can be changed by a database administrator | Protects against org users only. |
+| No TLS by default between components | Local deployment. Recommended for anything else. |
+| No protection against DDoS | Out of scope for the project. |
+| Logs can be lost if NATS is unreachable for long | Logs are best-effort at this scope. |
+
+## 14. Before exposing Proxyma beyond a local machine
+
+If anyone ever wants to run this on a shared or public server, at a minimum:
+
+- [ ] Put TLS in front of the dashboard and backend, and enable TLS on NATS
+- [ ] Use rootless Docker or a Docker socket proxy
+- [ ] Keep the proxy bind address, database ports and NATS port off public interfaces
+- [ ] Rotate all default secrets and keep them out of the environment of other containers
+- [ ] Set resource limits on the host and enable log rotation
+- [ ] Run `cargo audit` and dependency checks, and update base images
+- [ ] Review the "Known risks" table above and decide which are still acceptable
