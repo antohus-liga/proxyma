@@ -44,7 +44,7 @@ flowchart LR
 |---|---|---|
 | **Dashboard** | UI, session handling (JWT), rendering the live log stream | Talks to NATS, Docker or any database directly |
 | **Backend** | Auth, orgs, roles, audit trail, config validation and versioning, container lifecycle, log ingestion, SSE fan-out, ban records and their delivery | Handles proxied traffic |
-| **Proxy** | Reverse proxying, rate limiting, API mapping, enforcing IP bans from an in-memory set, reporting automatic bans, byte-sequence detection, emitting logs, acknowledging config | Reads or writes a database, talks to other orgs' subjects |
+| **Proxy** | Reverse proxying, rate limiting, API mapping, enforcing IP bans from an in-memory set, reporting automatic bans, byte-sequence detection, emitting logs, acknowledging config, applying config without restart (atomic swap) | Reads or writes a database, talks to other orgs' subjects |
 | **NATS JetStream** | Durable delivery of config, logs, acks and heartbeats, bans (KV) | Stores anything long-term |
 | **PostgreSQL** | Users, orgs, memberships, roles, config (with versions), audit trail, bans | Stores logs |
 | **ClickHouse** | Request logs (history and search), with a 30-day TTL | Serves the live view or stores relational state |
@@ -114,7 +114,7 @@ sequenceDiagram
     BE->>N: Publish config n to org.<id>.config
     BE->>PG: published_version = n
     N->>PX: Deliver config n
-    PX->>PX: Validate + apply
+    PX->>PX: Validate, compile and swap (no restart)
     alt Applied
         PX->>N: Ack {version n, status: applied}
         N-->>BE: Ack
@@ -140,6 +140,8 @@ sequenceDiagram
 | `applied_version < version`, no rejection | Pending |
 | Proxy rejected version `version` | Rejected, with the proxy's error message |
 | Proxy offline | Pending (and the org shows as offline) |
+
+`Applied` means the new config has been swapped in. Requests already in progress finish on the previous version.
 
 If a config is rejected, the proxy keeps running its last good config. Rejected versions are never half-applied.
 
@@ -181,22 +183,24 @@ flowchart LR
 | `latency_ms` | Time spent proxying |
 | `action` | `allowed`, `rate_limited`, `blocked`, `malicious` |
 | `rule` | Which rule triggered the action, if any |
+| `config_version` | Config version the request ran under |
 
 **ClickHouse table (sketch):**
 
 ```sql
 CREATE TABLE logs (
-    org_id      UUID,
-    timestamp   DateTime64(3),
-    id          String,
-    client_ip   String,
-    method      LowCardinality(String),
-    path        String,
-    status      UInt16,
-    upstream    String,
-    latency_ms  UInt32,
-    action      LowCardinality(String),
-    rule        String
+    org_id         UUID,
+    timestamp      DateTime64(3),
+    id             String,
+    client_ip      String,
+    method         LowCardinality(String),
+    path           String,
+    status         UInt16,
+    upstream       String,
+    latency_ms     UInt32,
+    action         LowCardinality(String),
+    rule           String,
+    config_version UInt64
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp)
@@ -370,7 +374,7 @@ stateDiagram-v2
     DELETING --> [*]: cleanup complete
 ```
 
-- **Heartbeat.** Each proxy publishes a small message on `org.<id>.heartbeat` at a fixed interval (for example every 5 seconds). If the backend hasn't seen one for a few intervals, the org is marked `OFFLINE`.
+- **Heartbeat.** Each proxy publishes a small message on `org.<id>.heartbeat` at a fixed interval (for example every 5 seconds). If the backend hasn't seen one for a few intervals, the org is marked `OFFLINE`. It includes the proxy's current `config_version`.
 - **Restart policy.** Containers are created with a Docker restart policy (`unless-stopped`), so Docker brings a crashed proxy back on its own.
 
 ### Proxy crash

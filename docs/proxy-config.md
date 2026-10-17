@@ -331,7 +331,77 @@ When the proxy rejects a config, its ack carries every problem it found, each po
 - Adding an **optional field with a default** does not need a new `schema_version`. Old configs stay valid.
 - Renaming, removing or changing the meaning of a field **bumps** `schema_version`. The backend migrates stored configs on upgrade, and a proxy that sees a `schema_version` newer than it understands rejects the config instead of guessing.
 
-## 12. Not in the MVP
+## 12. Applying a config without a restart
+
+A proxy **never restarts to apply a config**. A new config takes effect while the proxy keeps serving traffic. Requests already in progress finish on the config they started with, and new requests use the new one.
+
+### How it works
+
+1. The proxy receives a config message from NATS.
+2. It **validates** it against the schema and the limits in section 10.
+3. It **compiles** it into an immutable runtime structure: the route table, rate-limit settings, the detection matcher and the trusted-IP set.
+4. If validation or compilation fails, it sends a `rejected` ack and keeps the current config untouched.
+5. If it succeeds, it **atomically swaps** the new structure in with [`ArcSwap`](https://docs.rs/arc-swap), then sends an `applied` ack.
+
+```mermaid
+sequenceDiagram
+    participant N as NATS
+    participant U as Config updater task
+    participant S as ArcSwap<RuntimeConfig>
+    participant R1 as Request A (in flight)
+    participant R2 as Request B (new)
+
+    Note over S: holds config v6
+    R1->>S: load snapshot (v6)
+    N->>U: config v7
+    U->>U: validate + compile v7
+    U->>S: store(v7)
+    U->>N: ack {version 7, applied}
+    R2->>S: load snapshot (v7)
+    Note over R1: finishes on v6
+    Note over R2: runs on v7
+    R1-->>R1: done, drops its v6 reference
+    Note over S: v6 freed once the last reference is dropped
+```
+
+### Rules the proxy follows
+
+| Rule | Why |
+|---|---|
+| **One snapshot per request.** A request takes a snapshot when it enters the pipeline and uses that same snapshot for every step (route match, rate limit, detection, forwarding). | A request never sees a half-old, half-new config. |
+| **Snapshot per request, not per connection.** On a keep-alive connection, each new request takes a fresh snapshot. | A long-lived connection can't keep an org on an old config forever. |
+| **Hold a full reference, not a short-lived guard.** Use `load_full()` (an owned `Arc`) for the duration of a request, since the cheaper `load()` guard is meant for very short use. | Avoids degrading `ArcSwap` when many slow requests are in flight. |
+| **Compile before swapping.** Everything expensive, such as building the detection matcher, happens before the swap, off the request path. | The swap itself is a single pointer exchange, so requests are never blocked. |
+| **Swap or nothing.** A config is applied completely or not at all. | Matches the ack: `applied` means the swap happened. |
+| **Latest wins.** If several versions are waiting, the updater only compiles the newest. | Rapid edits don't pile up compile work. |
+| **Ignore old versions.** A version lower than or equal to the current one is ignored. | Makes redelivery harmless. |
+
+### What survives a swap
+
+The config snapshot is immutable and replaced wholesale, so anything that has to persist across swaps lives **outside** it, in separate shared state:
+
+| State | Behaviour on config change |
+|---|---|
+| **Rate-limit counters** | Kept, keyed by route `id` and client IP. New limits apply to the existing counters. Counters of routes that no longer exist are evicted. |
+| **Ban set** | Kept. It has its own lifecycle (see [`architecture.md`](architecture.md)) and is not part of the config. |
+| **Upstream connection pools** | Kept and shared, so a swap doesn't drop warm connections. Pools for upstreams that disappeared from the config are closed after they go idle. |
+| **In-flight requests** | Finish on the snapshot they started with. |
+
+If counters lived inside the snapshot, every config edit would reset all rate limits, which would let a client get a fresh allowance by waiting for someone to edit the config.
+
+### What "applied" means
+
+`applied` means the new config has been **swapped in**: every request that *starts* after that moment uses it. Requests that started earlier may still be finishing on the previous version, for at most as long as the longest upstream timeout (up to 120 seconds). The old config is freed when the last of those requests ends.
+
+### Which changes apply live
+
+Everything in this config applies live, since routes, limits, detection and auto-block rules are all read from the snapshot. Anything that would need a listener rebuilt, such as the listening port or TLS certificates, is **not** part of this config (see section 13), and if it is added in future it will need its own reload strategy.
+
+### Knowing which version handled a request
+
+Each log entry records the `config_version` it ran under. This makes it easy to answer "was this request handled before or after my change?" and shows the swap point in the log stream. The proxy's heartbeat also reports its current `config_version`, so the dashboard can show which version each proxy is actually running.
+
+## 13. Not in the MVP
 
 Deliberately left out to keep the project small and the config easy to understand:
 

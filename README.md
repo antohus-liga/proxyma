@@ -26,6 +26,7 @@ Legend: ✅ done · 🚧 in progress · 📝 planned
 - 📝 **API mapping**: route incoming paths to your upstream services
 - 📝 **Automatic IP blocking**: break a rule and your IP gets blocked
 - 📝 **Basic malicious byte-sequence detection**: catches the obvious nasties
+- 📝 **Zero-downtime config changes**: new settings apply instantly, with no restart and no dropped requests
 
 ### The platform
 - 📝 **One isolated proxy per organisation**: each org gets its own container

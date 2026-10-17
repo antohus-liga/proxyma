@@ -36,6 +36,7 @@ Every decision follows the same short format:
 | [19](#19-json-config-with-a-schema-version) | JSON config with a schema version | Config |
 | [20](#20-30-day-log-retention) | 30-day log retention | Logs |
 | [21](#21-monorepo-and-mit-license) | Monorepo and MIT license | Project |
+| [22](#22-hot-config-reload-with-arcswap) | Hot config reload with ArcSwap | Proxy |
 
 ---
 
@@ -254,3 +255,29 @@ Nobody can remove or demote the owner, and only the owner can remove or demote a
 **Alternatives.** Separate repositories per component would add coordination overhead for a project this size. The license started out as CC0, but Creative Commons recommends against using its licenses for software, so MIT was chosen for the same "use it freely" spirit with a standard software license.
 
 **Consequences.** One place for issues, docs and cross-component changes (such as a config schema update). The cost is that CI and tooling for three stacks live side by side.
+
+## 22. Hot config reload with ArcSwap
+
+**Context.** Restarting a proxy to apply a config would drop connections and
+interrupt traffic every time someone edits a setting. Zero-downtime changes are
+one of the product's main features.
+
+**Decision.** The proxy keeps its active config in an `ArcSwap`. A new config is
+validated and compiled first, then swapped in atomically. Each request takes one
+snapshot when it starts and uses it for its whole life, so in-flight requests
+finish on the old config while new requests use the new one. State that must
+outlive a config (rate-limit counters, bans, connection pools) lives outside the
+snapshot.
+
+**Alternatives.**
+- *Restart the proxy on every change*: simplest, but drops traffic and defeats
+  the point of a managed proxy.
+- *`RwLock<Config>`*: simple, but every request takes a lock, and a writer
+  can stall readers while compiling or swapping.
+- *Message passing to a single config-owning task*: avoids shared state, but
+  puts a channel hop on the hot path of every request.
+
+**Consequences.** Lock-free, cheap reads on the request path, no downtime, and a
+clean meaning for `applied` (swapped in). The cost is that config must be
+compiled into an immutable structure, long-lived state has to be kept outside
+it, and old configs stay in memory until their last request finishes.
