@@ -325,6 +325,7 @@ The malicious byte-sequence detection catches obvious patterns. It **can** be by
 | No TLS by default between components | Local deployment. Recommended for anything else. |
 | No protection against DDoS | Out of scope for the project. |
 | Logs can be lost if NATS is unreachable for long | Logs are best-effort at this scope. |
+| Weak email check on invitation | Not in the MVP |
 | A compromised admin account exposes user and org metadata and allows suspending accounts | Metadata only, short sessions, step-up checks, optional network restriction. 2FA planned. |
 
 ## 14. Platform administration
