@@ -144,11 +144,14 @@ The deeper stuff lives in [`docs/`](docs/):
 
 ## Roadmap
 
-- [ ] Proxy core: reverse proxying and API mapping
-- [ ] Rate limiting and automatic IP blocking
-- [ ] Basic malicious byte-sequence detection
-- [ ] Backend: auth, organisations, roles, container spawning
-- [ ] Dashboard with live logs and audit trail
+- [ ] Walking skeleton: create an org, spawn a proxy, push a route, see live logs
+- [ ] Proxy features: rate limiting, detection, auto-blocking, zero-downtime config reload
+- [ ] Reliable, isolated config delivery between backend and proxies
+- [ ] Teams, roles and audit trail
+- [ ] Searchable log history
+- [ ] Persistent IP bans
+- [ ] Admin panel
+- [ ] Release polish: demo, screenshots, contributor docs
 
 Details are in [`docs/roadmap.md`](docs/roadmap.md).
 
