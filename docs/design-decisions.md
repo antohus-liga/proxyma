@@ -37,6 +37,7 @@ Every decision follows the same short format:
 | [20](#20-30-day-log-retention) | 30-day log retention | Logs |
 | [21](#21-monorepo-and-mit-license) | Monorepo and MIT license | Project |
 | [22](#22-hot-config-reload-with-arcswap) | Hot config reload with ArcSwap | Proxy |
+| [23](#23-a-metadata-only-off-by-default-admin-panel) | Metadata-only admin panel | Admin |
 
 ---
 
@@ -281,3 +282,36 @@ snapshot.
 clean meaning for `applied` (swapped in). The cost is that config must be
 compiled into an immutable structure, long-lived state has to be kept outside
 it, and old configs stay in memory until their last request finishes.
+
+## 23. A metadata-only, off-by-default admin panel
+
+**Context.** The operator needs to see who has accounts, which orgs exist, whether
+proxies are healthy, and to be able to stop an abusive account. Without a panel,
+this means writing SQL by hand. A panel, however, makes a powerful capability
+reachable from the web.
+
+**Decision.** Add an admin panel that is disabled by default, authorized by a
+separate platform flag that can only be set from the server's command line,
+limited to metadata (never config, logs, ban IPs or secrets), and recorded in its
+own append-only audit trail. Risky actions need the admin's password again and a
+reason, and admin actions that affect an org appear in that org's own audit trail.
+Suspending an owner does not stop their org's proxy.
+
+**Alternatives.**
+- *No panel, use SQL*: safest, but poor for support, hard to demo, and invisible
+  to anyone affected.
+- *Admins can see everything*: more useful for debugging, but gives one account
+  access to every org's traffic and configuration, which is the opposite of the
+  isolation the rest of the design builds.
+- *Admin as an org-level role*: mixes platform and tenant authority, and makes it
+  easy to grant by mistake.
+- *Impersonation ("log in as the user")*: convenient, but hard to audit and easy
+  to abuse.
+- *Stop the proxy when its owner is suspended*: simple to explain, but takes down
+  an org's traffic and affects members who did nothing wrong.
+
+**Consequences.** Operators get a useful, safe-by-default tool, and users can see
+when platform staff touched their org. The cost is more code on the security
+boundary: a second authorization path, a second audit table, and tests proving
+that every admin endpoint rejects ordinary users. Two-factor authentication for
+admins is deferred.

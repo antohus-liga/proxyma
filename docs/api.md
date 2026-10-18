@@ -64,13 +64,13 @@
 ### `POST /auth/register`
 
 ```json
-{ "email": "ana@example.com", "display_name": "Ana", "password": "correct horse battery" }
+{ "email": "ana@example.com", "display_name": "Ana", "password": "correct horse battery", "is_platform_admin": false }
 ```
 
 `201 Created`
 
 ```json
-{ "id": "5f0c…", "email": "ana@example.com", "display_name": "Ana" }
+{ "id": "5f0c…", "email": "ana@example.com", "display_name": "Ana", "is_platform_admin": false }
 ```
 
 Errors: `409` (email taken, with a generic message that doesn't confirm it to attackers where possible), `422` (weak password or invalid email).
@@ -88,7 +88,7 @@ Errors: `409` (email taken, with a generic message that doesn't confirm it to at
   "access_token": "eyJ…",
   "token_type": "Bearer",
   "expires_in": 900,
-  "user": { "id": "5f0c…", "email": "ana@example.com", "display_name": "Ana" }
+  "user": { "id": "5f0c…", "email": "ana@example.com", "display_name": "Ana", "is_platform_admin": false }
 }
 ```
 
@@ -104,7 +104,7 @@ Revokes the refresh token and clears the cookie. `204 No Content`.
 
 ### Users
 
-- `GET /users/me` returns `{ id, email, display_name }`.
+- `GET /users/me` returns `{ id, email, display_name, is_platform_admin }`.
 - `PATCH /users/me` accepts `{ "display_name": "…" }`.
 - `POST /users/me/password` accepts `{ "current_password": "…", "new_password": "…" }`, revokes all refresh tokens and returns `204`.
 
@@ -475,6 +475,7 @@ The backend rate limits itself, separately from anything the proxy does. Exceedi
 | `PUT .../config`, `.../restore` | 30 per minute per org |
 | `.../logs`, `.../logs/stats` | 60 per minute per user |
 | `.../stream/ticket` | 30 per minute per user |
+| `/admin/...` | 120 per minute per admin, and 10 per minute for suspend and force-logout |
 | Everything else | 300 per minute per user |
 
 ## 12. Errors
@@ -501,16 +502,155 @@ Errors use the standard `application/problem+json` format, with a stable machine
 |---|---|
 | `400` | Malformed JSON or parameters |
 | `401` | Missing, expired or invalid access token |
-| `403` | The caller is a member but lacks the role (`code` explains which rule) |
+| `403` | The caller is a member but lacks the role (`code` explains which rule), also `ACCOUNT_SUSPENDED` (403 returned on login and refresh), `REAUTH_FAILED`, `ADMIN_CANNOT_TARGET_ADMIN` |
 | `404` | Unknown resource, **or an org the caller doesn't belong to** |
-| `409` | State conflict, such as `ORG_ALREADY_OWNED`, `ALREADY_MEMBER`, `ALREADY_BANNED`, `BAN_LIMIT_REACHED`, `OWNER_CANNOT_LEAVE` |
+| `409` | State conflict, such as `ORG_ALREADY_OWNED`, `ALREADY_MEMBER`, `ALREADY_BANNED`, `BAN_LIMIT_REACHED`, `OWNER_CANNOT_LEAVE`, `CANNOT_SUSPEND_SELF` |
 | `410` | `INVITATION_EXPIRED` |
 | `412` / `428` | Config `If-Match` conflict or missing |
 | `422` | Validation failed |
 | `429` | Rate limited |
 | `500` | Unexpected error (logged on the server, generic body) |
 
-## 13. Not in the MVP
+## 13. Admin API
+
+Available only when `PROXYMA_ADMIN_ENABLED=true`, only to platform admins, and
+only from allowed networks. In every other case these routes return `404`.
+Responses contain **metadata only**: no config, logs, ban IPs, org audit
+entries, password hashes or tokens. See
+[`security.md`](security.md#15-platform-administration).
+
+| Method | Path | Purpose | Audited |
+|---|---|---|---|
+| GET | `/admin/stats` | Platform totals | No |
+| GET | `/admin/users` | Search users | No |
+| GET | `/admin/users/{user_id}` | One user's details | Yes (view) |
+| POST | `/admin/users/{user_id}/suspend` | Suspend an account | Yes |
+| POST | `/admin/users/{user_id}/unsuspend` | Restore an account | Yes |
+| POST | `/admin/users/{user_id}/force-logout` | Revoke all of a user's sessions | Yes |
+| GET | `/admin/orgs` | Search orgs | No |
+| GET | `/admin/orgs/{org_id}` | One org's details | Yes (view) |
+| GET | `/admin/audit` | The platform audit trail | No |
+
+### `GET /admin/stats`
+
+```json
+{
+  "users": { "total": 42, "suspended": 1 },
+  "orgs": { "total": 31, "online": 28, "offline": 3 }
+}
+```
+
+### `GET /admin/users`
+
+Query: `q` (matches email or display name), `status` (`active` or `suspended`), `limit`, `cursor`.
+
+```json
+{
+  "items": [
+    {
+      "id": "5f0c…",
+      "email": "ana@example.com",
+      "display_name": "Ana",
+      "status": "active",
+      "created_at": "2026-09-01T10:00:00Z",
+      "last_login_at": "2026-10-18T09:12:00Z",
+      "owns_org": true,
+      "membership_count": 2
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+### `GET /admin/users/{user_id}`
+
+```json
+{
+  "id": "5f0c…",
+  "email": "ana@example.com",
+  "display_name": "Ana",
+  "status": "active",
+  "suspension": null,
+  "is_platform_admin": false,
+  "created_at": "2026-09-01T10:00:00Z",
+  "last_login_at": "2026-10-18T09:12:00Z",
+  "owned_org": { "id": "b7a1…", "name": "Acme" },
+  "memberships": [
+    { "org_id": "b7a1…", "org_name": "Acme", "role": "owner", "joined_at": "2026-09-01T10:05:00Z" },
+    { "org_id": "c93d…", "org_name": "Side project", "role": "member", "joined_at": "2026-09-20T16:00:00Z" }
+  ],
+  "active_sessions": 1
+}
+```
+
+Viewing this endpoint is recorded in the platform audit trail.
+
+### `POST /admin/users/{user_id}/suspend`
+
+```json
+{ "reason": "Repeated abuse reports", "password": "<admin's own password>" }
+```
+
+`200 OK` with the updated user. Effects are described in [`security.md`](security.md#15-platform-administration). Errors: `403 REAUTH_FAILED`, `403 ADMIN_CANNOT_TARGET_ADMIN`, `409 CANNOT_SUSPEND_SELF`, `422` for a missing reason.
+
+### `POST /admin/users/{user_id}/unsuspend`
+
+`{ "reason": "Resolved after contact" }`. Returns the updated user.
+
+### `POST /admin/users/{user_id}/force-logout`
+
+`{ "reason": "Possible account compromise", "password": "…" }`. Revokes all refresh tokens and closes live streams. Returns `204`.
+
+### `GET /admin/orgs`
+
+Query: `q` (org name or owner), `state`, `limit`, `cursor`.
+
+```json
+{
+  "items": [
+    {
+      "id": "b7a1…",
+      "name": "Acme",
+      "state": "ONLINE",
+      "owner": { "user_id": "5f0c…", "display_name": "Ana" },
+      "member_count": 3,
+      "created_at": "2026-09-01T10:00:00Z"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+### `GET /admin/orgs/{org_id}`
+
+```json
+{
+  "id": "b7a1…",
+  "name": "Acme",
+  "state": "ONLINE",
+  "created_at": "2026-09-01T10:00:00Z",
+  "owner": { "user_id": "5f0c…", "display_name": "Ana" },
+  "members": [
+    { "user_id": "5f0c…", "display_name": "Ana", "role": "owner" },
+    { "user_id": "a21e…", "display_name": "Bo", "role": "member" }
+  ],
+  "proxy": {
+    "last_heartbeat_at": "2026-10-18T14:35:12Z",
+    "running_config_version": 7,
+    "latest_config_version": 7,
+    "config_status": "applied",
+    "active_ban_count": 4
+  }
+}
+```
+
+The response has **no** config, logs, ban IPs or org audit entries. Viewing it is recorded in the platform audit trail.
+
+### `GET /admin/audit`
+
+Query: `from`, `to`, `admin_user_id`, `action`, `limit`, `cursor`. Returns the platform audit entries, newest first.
+
+## 14. Not in the MVP
 
 - Email delivery for invitations (links are shared by hand)
 - Email verification and password reset

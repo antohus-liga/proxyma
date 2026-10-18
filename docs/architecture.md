@@ -43,7 +43,7 @@ flowchart LR
 | Component | Owns | Never does |
 |---|---|---|
 | **Dashboard** | UI, session handling (JWT), rendering the live log stream | Talks to NATS, Docker or any database directly |
-| **Backend** | Auth, orgs, roles, audit trail, config validation and versioning, container lifecycle, log ingestion, SSE fan-out, ban records and their delivery | Handles proxied traffic |
+| **Backend** | Auth, orgs, roles, audit trail, config validation and versioning, container lifecycle, log ingestion, SSE fan-out, ban records and their delivery, platform administration | Handles proxied traffic, give admins access to config, logs or ban IPs |
 | **Proxy** | Reverse proxying, rate limiting, API mapping, enforcing IP bans from an in-memory set, reporting automatic bans, byte-sequence detection, emitting logs, acknowledging config, applying config without restart (atomic swap) | Reads or writes a database, talks to other orgs' subjects |
 | **NATS JetStream** | Durable delivery of config, logs, acks and heartbeats, bans (KV) | Stores anything long-term |
 | **PostgreSQL** | Users, orgs, memberships, roles, config (with versions), audit trail, bans | Stores logs |
@@ -453,7 +453,7 @@ A proxy's credentials grant no access outside its own prefix (plus the JetStream
 
 | Data | Store | Notes |
 |---|---|---|
-| Users, credentials | PostgreSQL | Passwords hashed |
+| Users, credentials | PostgreSQL | Suspension status, admin flag, passwords hashed |
 | Organisations, state | PostgreSQL | One per user account |
 | Memberships, roles | PostgreSQL | Owner, co-owner, member |
 | Invitations | PostgreSQL | |
@@ -462,6 +462,9 @@ A proxy's credentials grant no access outside its own prefix (plus the JetStream
 | Request logs | ClickHouse | 30-day TTL |
 | In-flight config, acks, recent logs | NATS JetStream | Transient delivery, not a record |
 | Blocked-IP list | PostgreSQL (truth), JetStream KV (delivery copy) | Proxy keeps an in-memory copy, rebuilt on every start |
+| Platform audit trail | PostgreSQL | Separate from per-org audit trails, append-only |
+
+Admin endpoints read only PostgreSQL, and never ClickHouse or NATS content. This keeps config and logs out of admin reach by construction, not just by policy.
 
 ## 10. Failure behaviour
 

@@ -35,6 +35,7 @@ Legend: ✅ done · 🚧 in progress · 📝 planned
 - 📝 **Teams**: invite people to your org and manage the proxy together
 - 📝 **Roles**: owner, co-owner and member
 - 📝 **Audit trail**: every action inside an org is recorded, so you always know who changed what
+- 📝 **Admin panel**: operators can see users and orgs (metadata only) and suspend accounts
 
 ## Roles
 

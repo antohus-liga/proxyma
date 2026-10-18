@@ -15,6 +15,7 @@ Proxyma is a small-team tool, hosted locally, and **not** a production-scale or 
 | Request logs | Contain client IPs and request paths |
 | Audit trail | Must be trustworthy to answer "who did this?" |
 | The host machine | The backend can create containers, which is powerful |
+| Admin access | Gives a view of every user and org |
 
 **What we assume**
 
@@ -324,8 +325,80 @@ The malicious byte-sequence detection catches obvious patterns. It **can** be by
 | No TLS by default between components | Local deployment. Recommended for anything else. |
 | No protection against DDoS | Out of scope for the project. |
 | Logs can be lost if NATS is unreachable for long | Logs are best-effort at this scope. |
+| A compromised admin account exposes user and org metadata and allows suspending accounts | Metadata only, short sessions, step-up checks, optional network restriction. 2FA planned. |
 
-## 14. Before exposing Proxyma beyond a local machine
+## 14. Platform administration
+
+Proxyma has an optional admin panel for the person operating the installation.
+It exists for support and abuse handling: seeing who has accounts, which orgs
+exist and whether their proxies are healthy, and suspending an account that is
+misbehaving.
+
+The operator can already read the database, so the panel doesn't create new
+power. What it creates is a **web-reachable path** to that power, which is why
+it is narrow, off by default, and fully recorded.
+
+### Rules
+
+| Rule | Design |
+|---|---|
+| **Off by default** | `PROXYMA_ADMIN_ENABLED=false` unless the operator sets it. While disabled, every admin route returns `404`. |
+| **Optional network restriction** | `PROXYMA_ADMIN_ALLOWED_CIDRS` limits admin routes to given networks, for example `127.0.0.1/32`. |
+| **Separate authorization** | A platform flag (`is_platform_admin`) on the user, checked in the database on every request, not stored in the JWT. It is independent of org roles, and admins are not automatically members of any org. |
+| **No way to become admin through the product** | The flag is set and cleared only with an operator command on the server (`grant-admin <email>` and `revoke-admin <email>`). There is no API endpoint for it, and it is **not** assigned based on an email given at signup. Email isn't verified in the MVP, so granting admin by registering a particular address would be unsafe. |
+| **Own namespace, deny by default** | Everything lives under `/api/v1/admin/...` behind its own authorization filter. Non-admins get `404`, so the panel's existence isn't revealed. |
+| **Metadata only** | Admins see accounts and org structure. They never see password hashes, tokens, config contents, request logs, ban IPs or an org's audit trail. |
+| **Everything is recorded** | Every admin action, and every view of an individual user or org, is written to the `platform_audit` table in the same transaction. |
+| **Visible to the people affected** | When an admin action affects an org (for example suspending one of its members), an entry appears in that org's own audit trail with the actor shown as "Platform administrator". |
+| **Step-up for risky actions** | Suspending a user or forcing a logout needs the admin's **password again** plus a written **reason**. Unsuspending needs a reason. |
+| **Shorter sessions** | Admin accounts get a shorter access-token lifetime (for example 5 minutes) than normal users. |
+| **Guard rails** | An admin can't suspend themselves, and can't suspend another admin. An admin's privileges have to be revoked with the operator command first. |
+| **No impersonation** | There is no "log in as this user" feature. |
+
+### What an admin can see
+
+| Visible | Never visible |
+|---|---|
+| Email, display name, creation date, last login, status | Password hashes, access or refresh tokens |
+| Which org a user owns and which orgs they belong to, with roles | Config contents and config history |
+| Org name, owner, members and roles, state, running config version | Request logs and log statistics |
+| Active ban **count** per org | Banned IP addresses |
+| Whether a proxy is online and when it last reported | An org's own audit trail |
+| Platform totals | NATS credentials, internal addresses of other components |
+
+### What suspending does
+
+- The user can't log in or refresh, and their current access token stops working on the next request, because status is checked on every request.
+- Their open live streams are closed and their refresh tokens revoked.
+- **Orgs keep running.** A suspended owner's org and proxy are not stopped, and its other members and co-owners continue as normal. Owner-only actions, such as deleting the org, wait until the account is unsuspended.
+- Each affected org gets an audit entry saying the member was suspended by a platform administrator.
+
+### Request flow
+
+~~~mermaid
+flowchart TD
+    A[Request to /api/v1/admin/...] --> B{Admin panel<br/>enabled?}
+    B -- no --> X[404]
+    B -- yes --> C{Source IP in<br/>allowed networks?}
+    C -- no --> X
+    C -- yes --> D{Valid JWT?}
+    D -- no --> Y[401]
+    D -- yes --> E{User exists, not suspended,<br/>is_platform_admin?}
+    E -- no --> X
+    E -- yes --> F{Risky action?}
+    F -- yes --> G{Password + reason<br/>correct?}
+    G -- no --> Z[403 REAUTH_FAILED]
+    G -- yes --> H[Do the action]
+    F -- no --> H
+    H --> I[Write platform_audit<br/>and org audit entries<br/>in the same transaction]
+    I --> J[Respond]
+~~~
+
+### Residual risk
+
+A stolen admin account would expose user and org **metadata** and let the attacker suspend ordinary accounts. It would not expose passwords, config, logs or traffic. Mitigations: short sessions, step-up password checks, the network restriction, and the audit trail. Two-factor authentication for admins is a planned improvement.
+
+## 15. Before exposing Proxyma beyond a local machine
 
 If anyone ever wants to run this on a shared or public server, at a minimum:
 
@@ -337,3 +410,4 @@ If anyone ever wants to run this on a shared or public server, at a minimum:
 - [ ] Set resource limits on the host and enable log rotation
 - [ ] Run `cargo audit` and dependency checks, and update base images
 - [ ] Review the "Known risks" table above and decide which are still acceptable
+- [ ] Keep `PROXYMA_ADMIN_ENABLED=false` unless needed, and restrict it with `PROXYMA_ADMIN_ALLOWED_CIDRS`
