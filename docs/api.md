@@ -11,7 +11,7 @@
 | Naming | `snake_case` everywhere, including the proxy config, so documents are identical end to end |
 | IDs | UUIDs |
 | Timestamps | ISO 8601 in UTC, for example `2026-10-18T14:30:00Z` |
-| Authentication | `Authorization: Bearer <access_token>`, except for the public auth endpoints. See [`security.md`](security.md#3-authentication). |
+| Authentication | `Authorization: Bearer <access_token>`, except for the public auth endpoints. See [`proxyma-security.md`](proxyma-security.md#3-authentication). |
 | Org scoping | Org endpoints live under `/orgs/{org_id}/...`. The backend checks the caller's **membership** first, then their role. |
 | Not a member | `404 Not Found`, so the API doesn't reveal which orgs exist |
 | Member without permission | `403 Forbidden` |
@@ -64,7 +64,7 @@
 ### `POST /auth/register`
 
 ```json
-{ "email": "ana@example.com", "display_name": "Ana", "password": "correct horse battery", "is_platform_admin": false }
+{ "email": "ana@example.com", "display_name": "Ana", "password": "correct horse battery" }
 ```
 
 `201 Created`
@@ -160,7 +160,7 @@ Every org the caller belongs to, with their role in each. This feeds the dashboa
 }
 ```
 
-`state` is one of `CREATING`, `STARTING`, `ONLINE`, `OFFLINE`, `DELETING` (see [`architecture.md`](architecture.md#6-flow-proxy-lifecycle)). `proxy.url` is where the org's traffic should be sent.
+`state` is one of `CREATING`, `STARTING`, `ONLINE`, `OFFLINE`, `DELETING` (see [`architecture.md`](architecture.md#7-flow-proxy-lifecycle)). `proxy.url` is where the org's traffic should be sent.
 
 ### `PATCH /orgs/{org_id}`
 
@@ -436,7 +436,7 @@ One stream per dashboard tab carries everything the dashboard shows live, so a b
 
 2. `GET /orgs/{org_id}/stream?ticket=c2f9…` opens the stream.
 
-The ticket is single-use, tied to the user and org, and valid for about 30 seconds. The stream closes when the user's session is revoked or their membership ends. See [`security.md`](security.md#sse-and-authentication).
+The ticket is single-use, tied to the user and org, and valid for about 30 seconds. The stream closes when the user's session is revoked or their membership ends. See [`proxyma-security.md`](proxyma-security.md#sse-and-authentication).
 
 Optional filters, applied server-side: `action` (repeatable), `ip`, `status`.
 
@@ -517,7 +517,7 @@ Available only when `PROXYMA_ADMIN_ENABLED=true`, only to platform admins, and
 only from allowed networks. In every other case these routes return `404`.
 Responses contain **metadata only**: no config, logs, ban IPs, org audit
 entries, password hashes or tokens. See
-[`security.md`](security.md#15-platform-administration).
+[`proxyma-security.md`](proxyma-security.md#14-platform-administration).
 
 | Method | Path | Purpose | Audited |
 |---|---|---|---|
@@ -591,7 +591,7 @@ Viewing this endpoint is recorded in the platform audit trail.
 { "reason": "Repeated abuse reports", "password": "<admin's own password>" }
 ```
 
-`200 OK` with the updated user. Effects are described in [`security.md`](security.md#15-platform-administration). Errors: `403 REAUTH_FAILED`, `403 ADMIN_CANNOT_TARGET_ADMIN`, `409 CANNOT_SUSPEND_SELF`, `422` for a missing reason.
+`200 OK` with the updated user. Effects are described in [`proxyma-security.md`](proxyma-security.md#14-platform-administration). Errors: `403 REAUTH_FAILED`, `403 ADMIN_CANNOT_TARGET_ADMIN`, `409 CANNOT_SUSPEND_SELF`, `422` for a missing reason.
 
 ### `POST /admin/users/{user_id}/unsuspend`
 

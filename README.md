@@ -9,7 +9,7 @@
 
 Sign up, create an organisation, and you get your own proxy instance, running in its own container, ready to be configured from a web dashboard. No servers to set up, no config files to hand-edit, no digging through terminals to see what's going on. Set up your rate limits and routes, then watch the traffic roll in live.
 
-<sub>The name comes from the Latin *proxima* ("nearest"). That's the idea: a proxy that's always close to you and always ready.
+<sub>The name comes from the Latin *proxima* ("nearest"). That's the idea: a proxy that's always close to you and always ready.</sub>
 
 ## Who is this for?
 
@@ -47,6 +47,7 @@ Every organisation has an owner, and the owner can bring in others.
 | Edit proxy config | ✅ | ✅ | ✅ |
 | View live logs | ✅ | ✅ | ✅ |
 | View audit trail | ✅ | ✅ | ✅ |
+| Ban / unban IPs manually | ✅ | ✅ | ✅ |
 | Invite / remove people | ❌ | ✅ | ✅ |
 | Assign roles | ❌ | ✅ | ✅ |
 | Delete the organisation | ❌ | ❌ | ✅ |
@@ -137,7 +138,7 @@ The deeper stuff lives in [`docs/`](docs/):
 
 - [Architecture](docs/architecture.md): how the pieces talk to each other
 - [Design decisions](docs/design-decisions.md): why things are built the way they are, and the trade-offs
-- [Security and isolation](docs/security.md): how orgs are kept apart
+- [Security and isolation](docs/proxyma-security.md): how orgs are kept apart
 - [Proxy configuration](docs/proxy-config.md): everything you can configure
 - [API reference](docs/api.md): backend endpoints
 - [Roadmap](docs/roadmap.md): what's planned

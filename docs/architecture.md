@@ -43,7 +43,7 @@ flowchart LR
 | Component | Owns | Never does |
 |---|---|---|
 | **Dashboard** | UI, session handling (JWT), rendering the live log stream | Talks to NATS, Docker or any database directly |
-| **Backend** | Auth, orgs, roles, audit trail, config validation and versioning, container lifecycle, log ingestion, SSE fan-out, ban records and their delivery, platform administration | Handles proxied traffic, give admins access to config, logs or ban IPs |
+| **Backend** | Auth, orgs, roles, audit trail, config validation and versioning, container lifecycle, log ingestion, SSE fan-out, ban records and their delivery, platform administration | Handles proxied traffic, gives admins access to config, logs or ban IPs |
 | **Proxy** | Reverse proxying, rate limiting, API mapping, enforcing IP bans from an in-memory set, reporting automatic bans, byte-sequence detection, emitting logs, acknowledging config, applying config without restart (atomic swap) | Reads or writes a database, talks to other orgs' subjects |
 | **NATS JetStream** | Durable delivery of config, logs, acks and heartbeats, bans (KV) | Stores anything long-term |
 | **PostgreSQL** | Users, orgs, memberships, roles, config (with versions), audit trail, bans | Stores logs |
@@ -85,7 +85,7 @@ sequenceDiagram
 
 The org's initial config is published *before* the container starts. Because JetStream keeps the last message per subject, the proxy finds it waiting no matter how fast or slow it boots.
 
-If any step fails, the org stays in `CREATING` or `STARTING`, and the reconciliation loop (see section 6) cleans up or retries.
+If any step fails, the org stays in `CREATING` or `STARTING`, and the reconciliation loop (see section 7) cleans up or retries.
 
 ## 4. Flow: config update
 
@@ -383,7 +383,7 @@ A restarted proxy reconnects to NATS and fetches the last message on its config 
 
 ### Backend restart (reconciliation)
 
-On startup, and then periodically, the backend compares the database with what Docker is actually running, the loop also reconciles bans between PostgreSQL and the BANS bucket:
+On startup, and then periodically, the backend compares the database with what Docker is actually running. The loop also reconciles bans between PostgreSQL and the BANS bucket:
 
 ```mermaid
 flowchart TD
@@ -447,7 +447,7 @@ The subject prefix doubles as the isolation boundary: every org owns everything 
 | Proxy for org `X` | `org.X.logs`, `org.X.config.ack`, `org.X.heartbeat`, `org.X.events.ban` | `org.X.config`, Read and watch only keys starting with `X.` in `BANS` |
 | Backend | `org.*.config`, Write to all `BANS` keys | `org.*.logs`, `org.*.config.ack`, `org.*.heartbeat`, `org.*.events.ban` |
 
-A proxy's credentials grant no access outside its own prefix (plus the JetStream API calls needed for its own consumer). Org A's proxy therefore cannot read org B's config or write into B's logs. Implementation details on how the backend registers credentials with NATS belong in [`security.md`](security.md).
+A proxy's credentials grant no access outside its own prefix (plus the JetStream API calls needed for its own consumer). Org A's proxy therefore cannot read org B's config or write into B's logs. Implementation details on how the backend registers credentials with NATS belong in [`proxyma-security.md`](proxyma-security.md).
 
 ## 9. Data ownership
 
@@ -481,9 +481,9 @@ Admin endpoints read only PostgreSQL, and never ClickHouse or NATS content. This
 
 ## 11. Known limitations
 
-- The backend needs access to the Docker socket, which is powerful. This is accepted for a local, non-public deployment and is covered in [`security.md`](security.md).
+- The backend needs access to the Docker socket, which is powerful. This is accepted for a local, non-public deployment and is covered in [`proxyma-security.md`](proxyma-security.md).
 - Logs are at-least-once, so duplicates are possible. Logs can also be lost if NATS is unreachable for long.
-- Rate-limit counters and live in a single proxy's memory and are lost on restart.
+- Rate-limit counters live in a single proxy's memory and are lost on restart.
 - One proxy instance per org means no horizontal scaling and no failover.
 - Only a single backend instance is supported. Running several would need coordination for reconciliation and the retry job.
 - If a proxy auto-bans an IP and **restarts before the backend has processed the ban event** (backend down or lagging), the restarted proxy won't know about that ban until the backend catches up and writes it to KV. The ban event is not lost, only delayed. For this project's scope, that's an accepted trade-off in exchange for the backend being the only writer.

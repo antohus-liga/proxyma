@@ -93,7 +93,7 @@ Every decision follows the same short format:
 
 **Alternatives.** WebSockets. They are bidirectional, which we don't need, and they need their own handling for reconnects, heartbeats and proxies.
 
-**Consequences.** SSE is plain HTTP, reconnects automatically, supports `Last-Event-ID`, and is cheaper to run. The cost is that browsers' `EventSource` can't send an `Authorization` header, so streams use a short-lived single-use ticket (see [`security.md`](security.md#sse-and-authentication)).
+**Consequences.** SSE is plain HTTP, reconnects automatically, supports `Last-Event-ID`, and is cheaper to run. The cost is that browsers' `EventSource` can't send an `Authorization` header, so streams use a short-lived single-use ticket (see [`proxyma-security.md`](proxyma-security.md#sse-and-authentication)).
 
 ## 6. Live logs from NATS, history from ClickHouse
 
@@ -173,7 +173,7 @@ Every decision follows the same short format:
 
 **Alternatives.** A remote Docker daemon, Kubernetes, or Docker Compose files generated on the fly. All of them add setup for users, which cuts against the simplicity goal.
 
-**Consequences.** The simplest working option. The cost is real: socket access is effectively root on the host. It is documented as an accepted risk, with rootless Docker or a socket proxy recommended for anything shared (see [`security.md`](security.md#10-the-docker-socket)).
+**Consequences.** The simplest working option. The cost is real: socket access is effectively root on the host. It is documented as an accepted risk, with rootless Docker or a socket proxy recommended for anything shared (see [`proxyma-security.md`](proxyma-security.md#10-the-docker-socket)).
 
 ## 14. Reconciliation loop and heartbeats
 

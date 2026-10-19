@@ -85,9 +85,9 @@ Everything a proxy sends to the backend (logs, acks, ban events, heartbeats) is 
 
 The browser's `EventSource` can't send an `Authorization` header, and putting the main access token in a URL would leak it into logs. So:
 
-1. The dashboard calls `POST /orgs/{id}/logs/ticket` with its normal authentication.
+1. The dashboard calls `POST /orgs/{id}/stream/ticket` with its normal authentication.
 2. The backend checks the user's membership and returns a **single-use ticket** valid for about 30 seconds.
-3. The dashboard opens `GET /orgs/{id}/logs/stream?ticket=...`.
+3. The dashboard opens `GET /orgs/{id}/stream?ticket=...`.
 4. The backend consumes the ticket, binds the stream to that user and org, and ends the stream when the user's session is revoked or their membership is removed.
 
 ## 4. Authorization
@@ -224,7 +224,7 @@ Because proxies can reach the host and the LAN **by design**, the guard rails ar
 
 **Default:** NATS **decentralised JWT authentication**.
 
-- The backend holds an account signing key and issues a **user JWT per org** on org creation, with the exact permissions listed in [`architecture.md`](architecture.md#7-nats-subject-layout).
+- The backend holds an account signing key and issues a **user JWT per org** on org creation, with the exact permissions listed in [`architecture.md`](architecture.md#8-nats-subject-layout).
 - No NATS server restart or config edit is needed to add or remove an org.
 - Revoking an org's credentials on deletion is done by adding the user to the account's revocation list.
 
@@ -325,7 +325,7 @@ The malicious byte-sequence detection catches obvious patterns. It **can** be by
 | No TLS by default between components | Local deployment. Recommended for anything else. |
 | No protection against DDoS | Out of scope for the project. |
 | Logs can be lost if NATS is unreachable for long | Logs are best-effort at this scope. |
-| Weak email check on invitation | Not in the MVP |
+| Invitations match on an unverified email address | Email verification isn't in the MVP, so someone who registers with an invited address can accept it. The invite link is also only as private as the channel it is shared through. |
 | A compromised admin account exposes user and org metadata and allows suspending accounts | Metadata only, short sessions, step-up checks, optional network restriction. 2FA planned. |
 
 ## 14. Platform administration

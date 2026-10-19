@@ -73,7 +73,7 @@ This is the most important milestone. Everything after it is improving a system 
 **Goal:** the proxy does what the product promises. Can be built with a local JSON file for config, independent of the backend.
 
 - 📝 Route matching: first match wins, path prefix, methods, `strip_prefix`, timeouts, forwarded headers
-- 📝 **Hot reload with `ArcSwap`**: validate, compile, swap, one snapshot per request, state kept outside the snapshot (see [`proxy-config.md`](proxy-config.md#applying-a-config-without-a-restart))
+- 📝 **Hot reload with `ArcSwap`**: validate, compile, swap, one snapshot per request, state kept outside the snapshot (see [`proxy-config.md`](proxy-config.md#12-applying-a-config-without-a-restart))
 - 📝 Rate limiting, with global and per-route limits, bounded counter storage and counters that survive a swap
 - 📝 Malicious byte-sequence detection: built-in sets, custom text and hex sequences, `block` and `log` modes
 - 📝 Trusted IPs and client IP source
@@ -92,7 +92,7 @@ This is the most important milestone. Everything after it is improving a system 
 - 📝 Proxy acks (`applied` or `rejected` with errors), shown in the dashboard as pending, applied or rejected
 - 📝 `If-Match` handling for concurrent edits, dry-run validation endpoint
 - 📝 Retry job for unpublished configs
-- 📝 JetStream streams and consumers as in [`architecture.md`](architecture.md#7-nats-subject-layout), with a proxy that loads its latest config on start
+- 📝 JetStream streams and consumers as in [`architecture.md`](architecture.md#8-nats-subject-layout), with a proxy that loads its latest config on start
 - 📝 **Per-org NATS credentials** (JWT users with scoped permissions and inbox prefix), replacing the M1 shortcut
 - 📝 Container hardening, resource limits, labels and port allocation
 - 📝 Heartbeats, org states, and the **reconciliation loop**
@@ -109,7 +109,7 @@ This is the most important milestone. Everything after it is improving a system 
 - 📝 Invitations (hashed single-use tokens, expiry, share-by-link)
 - 📝 One owned org per user, membership in many, and the org switcher in the dashboard
 - 📝 Append-only audit trail written in the same transaction as each change, plus the dashboard view
-- 📝 Refresh-token rotation and logout, as in [`security.md`](security.md#3-authentication)
+- 📝 Refresh-token rotation and logout, as in [`proxyma-security.md`](proxyma-security.md#3-authentication)
 - 📝 Rate limits on the backend API
 - 📝 Permission tests for every endpoint and role
 
@@ -143,7 +143,7 @@ This is the most important milestone. Everything after it is improving a system 
 
 ### M7: Admin panel
 
-**Goal:** operators can see and moderate the platform. Details in [`security.md`](security.md#15-platform-administration).
+**Goal:** operators can see and moderate the platform. Details in [`proxyma-security.md`](proxyma-security.md#14-platform-administration).
 
 - 📝 Platform admin flag, operator `grant-admin` and `revoke-admin` commands, disabled by default
 - 📝 Read-only user and org search and detail views, and platform stats
@@ -172,7 +172,7 @@ This is the most important milestone. Everything after it is improving a system 
 - **Proxy:** unit tests for routing, matching, rate limiting and detection. Integration tests that swap config under load.
 - **Backend:** integration tests with Testcontainers for PostgreSQL, ClickHouse and NATS.
 - **Isolation and permissions:** automated tests that act as the wrong user or the wrong org and must be refused.
-- **Failure tests:** stop each dependency in turn and check the behaviour described in [`architecture.md`](architecture.md#9-failure-behaviour).
+- **Failure tests:** stop each dependency in turn and check the behaviour described in [`architecture.md`](architecture.md#10-failure-behaviour).
 - **Shared config test cases:** one set of valid and invalid configs checked by both validators.
 
 ## 5. If time runs short
