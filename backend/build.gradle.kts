@@ -24,6 +24,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.springframework.boot:spring-boot-starter-security")
+	implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.flywaydb:flyway-database-postgresql")
@@ -36,13 +37,22 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-testcontainers")
+	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	
 	// Existing Spring Initializr dependencies remain here.
 
-    // NATS JetStream
-    implementation("io.nats:jnats:2.26.4")
+    // NATS JetStream. jnats brings the LTS BouncyCastle line, while
+    // docker-java brings the regular line; keep one provider on the classpath.
+    implementation("io.nats:jnats:2.26.4") {
+        exclude(group = "org.bouncycastle", module = "bcprov-lts8on")
+    }
+
+    // Argon2id password hashing (also required by Spring Security).
+    implementation("org.bouncycastle:bcprov-jdk18on:1.82")
 
     // ClickHouse JDBC
     implementation("com.clickhouse:clickhouse-jdbc:0.10.0:all")
