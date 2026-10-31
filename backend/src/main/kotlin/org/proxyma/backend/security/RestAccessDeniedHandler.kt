@@ -1,8 +1,8 @@
 package org.proxyma.backend.security
 
-import org.proxyma.backend.common.api.ProblemResponseWriter
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.proxyma.backend.common.api.ProblemResponseWriter
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.web.access.AccessDeniedHandler
 import org.springframework.stereotype.Component
@@ -18,6 +18,7 @@ class RestAccessDeniedHandler(
 		accessDeniedException: AccessDeniedException,
 	) {
 		writer.write(
+			request = request,
 			response = response,
 			status = HttpServletResponse.SC_FORBIDDEN,
 			code = "FORBIDDEN",

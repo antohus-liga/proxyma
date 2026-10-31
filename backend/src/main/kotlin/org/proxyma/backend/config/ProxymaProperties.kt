@@ -18,6 +18,8 @@ data class AuthProperties(
 	val accessTokenTtl: Duration = Duration.ofMinutes(15),
 	val adminAccessTokenTtl: Duration = Duration.ofMinutes(5),
 	val refreshTokenTtl: Duration = Duration.ofDays(7),
+	/** How long a just-rotated refresh token is treated as a race, not theft. */
+	val refreshReuseGrace: Duration = Duration.ofSeconds(30),
 	val cookie: CookieProperties = CookieProperties(),
 	val password: PasswordProperties = PasswordProperties(),
 	val argon2: Argon2Properties = Argon2Properties(),

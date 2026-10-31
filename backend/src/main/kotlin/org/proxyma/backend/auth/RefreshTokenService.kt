@@ -54,6 +54,13 @@ class RefreshTokenService(
 	/**
 	 * Rotates a refresh token. Presenting an already-revoked token is treated as
 	 * theft: the whole family is revoked.
+	 *
+	 * The exception is a token that was rotated moments ago. Two concurrent
+	 * refresh requests from the same client would otherwise trip reuse detection
+	 * and log the user out, so a replay within [ProxymaProperties]'
+	 * `refresh-reuse-grace` window fails with [REFRESH_IN_PROGRESS] and leaves
+	 * the family intact. The loser of the race still gets no token; the winner's
+	 * rotation stands.
 	 */
 	// Reuse detection must survive the exception that rejects the request: the
 	// family revocation is the whole point, so do not roll it back.
@@ -64,6 +71,9 @@ class RefreshTokenService(
 			?: throw invalid()
 
 		if (token.revokedAt != null || token.replacedByTokenId != null) {
+			if (wasJustRotated(token, now)) {
+				throw refreshInProgress()
+			}
 			repository.revokeFamily(token.familyId, now)
 			throw invalid()
 		}
@@ -79,7 +89,8 @@ class RefreshTokenService(
 			familyId = token.familyId,
 			userAgent = userAgent?.take(512),
 			ip = ip,
-			expiresAt = token.expiresAt,
+			// Sliding expiry: every rotation renews the token for a full TTL.
+			expiresAt = now.plus(properties.auth.refreshTokenTtl),
 		)
 		repository.save(replacement)
 
@@ -87,7 +98,9 @@ class RefreshTokenService(
 		token.replacedByTokenId = replacement.id
 		repository.save(token)
 
-		return Rotation(token.userId, IssuedRefresh(rawReplacement, token.expiresAt))
+		// Report the replacement's expiry, not the one it replaced: the cookie's
+		// Max-Age must slide with the token, otherwise it expires on the old date.
+		return Rotation(token.userId, IssuedRefresh(rawReplacement, replacement.expiresAt))
 	}
 
 	@Transactional
@@ -111,6 +124,28 @@ class RefreshTokenService(
 		message = "The refresh token is missing, expired or no longer valid.",
 	)
 
+	/**
+	 * True when this token was rotated inside the grace window, which means the
+	 * caller most likely lost a race with its own concurrent refresh rather than
+	 * replaying a stolen token. A zero grace disables the carve-out entirely.
+	 */
+	private fun wasJustRotated(token: RefreshToken, now: Instant): Boolean {
+		val grace = properties.auth.refreshReuseGrace
+		if (grace.isZero || grace.isNegative) {
+			return false
+		}
+		if (token.replacedByTokenId == null || token.revokedAt == null) {
+			return false
+		}
+		return Duration.between(token.revokedAt, now) <= grace
+	}
+
+	private fun refreshInProgress() = ApiException(
+		status = HttpStatus.CONFLICT,
+		code = REFRESH_IN_PROGRESS,
+		message = "This refresh token was already rotated. Retry with the current cookie.",
+	)
+
 	private fun randomToken(): String {
 		val bytes = ByteArray(32)
 		random.nextBytes(bytes)
@@ -121,4 +156,8 @@ class RefreshTokenService(
 		MessageDigest.getInstance("SHA-256")
 			.digest(rawToken.toByteArray(Charsets.UTF_8))
 			.joinToString("") { "%02x".format(it) }
+
+	companion object {
+		const val REFRESH_IN_PROGRESS = "REFRESH_IN_PROGRESS"
+	}
 }

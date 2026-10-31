@@ -16,8 +16,12 @@ import java.util.UUID
 
 /**
  * Loads the account behind a valid access token on every request. This is what
- * makes suspension and profile changes take effect immediately, since the token
- * carries no roles or status.
+ * makes suspension, profile changes and credential changes take effect
+ * immediately, since the token itself carries no roles or status.
+ *
+ * The `tv` (token version) claim is compared against `users.token_version`,
+ * which lets a password change or an admin force-logout retire access tokens
+ * before their natural expiry.
  */
 @Component
 class UserStatusFilter(
@@ -38,20 +42,29 @@ class UserStatusFilter(
 
 		val userId = runCatching { UUID.fromString(authentication.token.subject) }.getOrNull()
 		if (userId == null) {
-			SecurityContextHolder.clearContext()
-			writer.write(response, 401, "UNAUTHORIZED", "The access token is invalid.")
+			reject(request, response, HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED", "The access token is invalid.")
 			return
 		}
 
 		val user = users.findById(userId).orElse(null)
 		if (user == null) {
-			SecurityContextHolder.clearContext()
-			writer.write(response, 401, "UNAUTHORIZED", "The access token is invalid.")
+			reject(request, response, HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED", "The access token is invalid.")
 			return
 		}
 		if (user.status == UserStatus.SUSPENDED) {
-			SecurityContextHolder.clearContext()
-			writer.write(response, 403, "ACCOUNT_SUSPENDED", "This account has been suspended.")
+			reject(request, response, HttpServletResponse.SC_FORBIDDEN, "ACCOUNT_SUSPENDED", "This account has been suspended.")
+			return
+		}
+
+		val tokenVersion = (authentication.token.claims["tv"] as? Number)?.toInt() ?: 0
+		if (tokenVersion != user.tokenVersion) {
+			reject(
+				request,
+				response,
+				HttpServletResponse.SC_UNAUTHORIZED,
+				"UNAUTHORIZED",
+				"The access token is no longer valid.",
+			)
 			return
 		}
 
@@ -72,5 +85,16 @@ class UserStatusFilter(
 		SecurityContextHolder.getContext().authentication = replacement
 
 		filterChain.doFilter(request, response)
+	}
+
+	private fun reject(
+		request: HttpServletRequest,
+		response: HttpServletResponse,
+		status: Int,
+		code: String,
+		detail: String,
+	) {
+		SecurityContextHolder.clearContext()
+		writer.write(request, response, status, code, detail)
 	}
 }

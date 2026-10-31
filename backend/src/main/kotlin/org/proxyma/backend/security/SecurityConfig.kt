@@ -1,6 +1,8 @@
 package org.proxyma.backend.security
 
+import org.proxyma.backend.common.api.ProblemResponseWriter
 import org.proxyma.backend.config.ProxymaProperties
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -9,8 +11,8 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.web.cors.CorsConfiguration
-import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import org.springframework.web.filter.CorsFilter
 
 @Configuration
 class SecurityConfig {
@@ -21,11 +23,11 @@ class SecurityConfig {
 		entryPoint: RestAuthenticationEntryPoint,
 		accessDeniedHandler: RestAccessDeniedHandler,
 		userStatusFilter: UserStatusFilter,
-		properties: ProxymaProperties,
 	): SecurityFilterChain {
 		http
 			.csrf { it.disable() }
-			.cors { it.configurationSource(corsConfigurationSource(properties)) }
+			// Picks up the `corsFilter` bean below so rejections render problem+json.
+			.cors { }
 			.sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
 			.authorizeHttpRequests { authorize ->
 				authorize.requestMatchers(
@@ -51,7 +53,11 @@ class SecurityConfig {
 		return http.build()
 	}
 
-	private fun corsConfigurationSource(properties: ProxymaProperties): CorsConfigurationSource {
+	@Bean
+	fun corsFilter(
+		properties: ProxymaProperties,
+		writer: ProblemResponseWriter,
+	): CorsFilter {
 		val configuration = CorsConfiguration()
 		configuration.allowedOrigins = properties.cors.allowedOrigins
 		configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
@@ -61,6 +67,16 @@ class SecurityConfig {
 
 		val source = UrlBasedCorsConfigurationSource()
 		source.registerCorsConfiguration("/**", configuration)
-		return source
+
+		return CorsFilter(source).apply { setCorsProcessor(ProblemCorsProcessor(writer)) }
 	}
+
+	/**
+	 * `CorsFilter` is a `Filter` bean, so Boot would also register it in the
+	 * servlet container. It is only meant to run inside the security chain;
+	 * registering it twice would add duplicate CORS handling.
+	 */
+	@Bean
+	fun corsFilterRegistration(filter: CorsFilter): FilterRegistrationBean<CorsFilter> =
+		FilterRegistrationBean(filter).apply { isEnabled = false }
 }

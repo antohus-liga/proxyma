@@ -8,6 +8,7 @@
 |---|---|
 | Base path | `/api/v1` |
 | Format | JSON, UTF-8, `Content-Type: application/json` |
+| Errors | `application/problem+json`, one shape from every layer (see [section 12](#12-errors)) |
 | Naming | `snake_case` everywhere, including the proxy config, so documents are identical end to end |
 | IDs | UUIDs |
 | Timestamps | ISO 8601 in UTC, for example `2026-10-18T14:30:00Z` |
@@ -81,7 +82,7 @@ Errors: `409` (email taken, with a generic message that doesn't confirm it to at
 { "email": "ana@example.com", "password": "correct horse battery" }
 ```
 
-`200 OK`. The refresh token is set as an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. It is never in the body.
+`200 OK`. The refresh token is set as an `HttpOnly`, `SameSite=Strict` cookie (`Secure` is included unless `proxyma.auth.cookie.secure=false` for plain-HTTP development). It is never in the body.
 
 ```json
 {
@@ -96,17 +97,19 @@ Errors: `401` with the same generic message for an unknown email and a wrong pas
 
 ### `POST /auth/refresh`
 
-Needs the refresh cookie and no body. Returns a new access token (same shape as login) and **rotates** the refresh cookie. If an already-used refresh token is presented again, the whole token family is revoked, which signals theft.
+Needs the refresh cookie and no body. Returns a new access token (same shape as login) and **rotates** the refresh cookie. Expiry slides: each rotation renews the stored token and the cookie for a full refresh TTL.
+
+Clients must still de-duplicate refreshes, but a lost race is no longer fatal. A just-rotated token replayed within `proxyma.auth.refresh-reuse-grace` (default 30 s) returns `409 REFRESH_IN_PROGRESS`; the token family is left intact and the cookie is not cleared, so the winner's response remains valid. A replay after that window is treated as theft: the whole family is revoked and the response is `401 INVALID_REFRESH_TOKEN` with a cookie-clearing `Set-Cookie`.
 
 ### `POST /auth/logout`
 
-Revokes the refresh token and clears the cookie. `204 No Content`.
+Revokes the refresh token and clears the cookie. `204 No Content`. It is unauthenticated and idempotent: a missing or already-revoked cookie still returns `204` and still clears the cookie.
 
 ### Users
 
 - `GET /users/me` returns `{ id, email, display_name, is_platform_admin }`.
 - `PATCH /users/me` accepts `{ "display_name": "…" }`.
-- `POST /users/me/password` accepts `{ "current_password": "…", "new_password": "…" }`, revokes all refresh tokens and returns `204`.
+- `POST /users/me/password` accepts `{ "current_password": "…", "new_password": "…" }`, revokes all refresh tokens and returns `204`. It also invalidates already-issued access tokens, which are rejected with `401` on their next request.
 
 ## 4. Organisations
 
@@ -465,7 +468,15 @@ The live view is not replayable. After a reconnect, the dashboard sends the last
 
 ## 11. Rate limits on the API
 
-The backend rate limits itself, separately from anything the proxy does. Exceeding a limit returns `429 Too Many Requests` with a `Retry-After` header.
+The backend rate limits itself, separately from anything the proxy does. Every response from a rate-limited endpoint advertises the current budget:
+
+| Header | Meaning |
+|---|---|
+| `RateLimit-Limit` | Requests allowed in the current window |
+| `RateLimit-Remaining` | Requests still allowed in this window |
+| `RateLimit-Reset` | Seconds until the window resets |
+
+Login checks two buckets (per IP and per account) and reports the tighter one. Exceeding a limit returns `429 Too Many Requests` with the same three headers plus `Retry-After`.
 
 | Endpoints | Limit (default) |
 |---|---|
@@ -485,10 +496,11 @@ Errors use the standard `application/problem+json` format, with a stable machine
 ```json
 {
   "type": "about:blank",
-  "title": "Validation failed",
+  "title": "Unprocessable Content",
   "status": 422,
+  "detail": "The request has 2 problems.",
+  "instance": "/api/v1/orgs/5f0c…/config",
   "code": "VALIDATION_FAILED",
-  "detail": "The config has 2 problems.",
   "errors": [
     { "path": "/routes/1/upstream/url", "message": "must be a valid http or https URL" },
     { "path": "/detection/custom_sequences/0/value", "message": "hex value must have an even number of digits" }
@@ -496,20 +508,24 @@ Errors use the standard `application/problem+json` format, with a stable machine
 }
 ```
 
+Every error path — controllers, security filters, CORS rejections — returns this same document in the same key order: `type`, `title`, `status`, `detail`, `instance`, `code`, then `errors` when present. `type` is always `about:blank` for now, so clients can rely on it existing; `instance` is the request path; `title` is the HTTP reason phrase.
+
 `errors[].path` is a JSON Pointer into the submitted document, the same format the proxy uses when it rejects a config. Responses never contain stack traces or internal details.
 
 | Status | Used for |
 |---|---|
 | `400` | Malformed JSON or parameters |
-| `401` | Missing, expired or invalid access token |
-| `403` | The caller is a member but lacks the role (`code` explains which rule), also `ACCOUNT_SUSPENDED` (403 returned on login and refresh), `REAUTH_FAILED`, `ADMIN_CANNOT_TARGET_ADMIN` |
+| `401` | Missing, expired or invalid access token (`UNAUTHORIZED`), including tokens retired by a password change or force-logout |
+| `403` | The caller is a member but lacks the role (`code` explains which rule), also `ACCOUNT_SUSPENDED` (403 returned on login and refresh), `REAUTH_FAILED`, `ADMIN_CANNOT_TARGET_ADMIN`, and `CORS_REJECTED` when the request origin is not in the allowlist |
 | `404` | Unknown resource, **or an org the caller doesn't belong to** |
-| `409` | State conflict, such as `ORG_ALREADY_OWNED`, `ALREADY_MEMBER`, `ALREADY_BANNED`, `BAN_LIMIT_REACHED`, `OWNER_CANNOT_LEAVE`, `CANNOT_SUSPEND_SELF` |
+| `409` | State conflict, such as `ORG_ALREADY_OWNED`, `ALREADY_MEMBER`, `ALREADY_BANNED`, `BAN_LIMIT_REACHED`, `OWNER_CANNOT_LEAVE`, `CANNOT_SUSPEND_SELF`, `REFRESH_IN_PROGRESS` |
 | `410` | `INVITATION_EXPIRED` |
 | `412` / `428` | Config `If-Match` conflict or missing |
 | `422` | Validation failed |
 | `429` | Rate limited |
 | `500` | Unexpected error (logged on the server, generic body) |
+
+Unmatched routes are authenticated before they are routed: an unknown path without a valid access token returns `401`, not `404`, and a method mismatch on a protected path does the same. This avoids anonymous route enumeration. CORS rejections happen before authentication, so a disallowed `Origin` wins over `401`.
 
 ## 13. Admin API
 

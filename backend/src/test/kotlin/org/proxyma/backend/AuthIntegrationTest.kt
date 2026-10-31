@@ -113,10 +113,31 @@ class AuthIntegrationTest : IntegrationTestBase() {
 		mockMvc.perform(get("/api/v1/users/me"))
 			.andExpect(status().isUnauthorized)
 			.andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+			// Filter-layer errors use the same document as MVC errors.
+			.andExpect(jsonPath("$.type").value("about:blank"))
+			.andExpect(jsonPath("$.instance").value("/api/v1/users/me"))
+			.andExpect(jsonPath("$.status").value(401))
+			.andExpect(jsonPath("$.title").value("Unauthorized"))
 	}
 
 	@Test
-	fun `refresh rotates the token and reusing the old token revokes the family`() {
+	fun `mvc errors carry the same envelope as filter errors`() {
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"nobody@example.com","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.type").value("about:blank"))
+			.andExpect(jsonPath("$.instance").value("/api/v1/auth/login"))
+			.andExpect(jsonPath("$.status").value(401))
+			.andExpect(jsonPath("$.title").value("Unauthorized"))
+			.andExpect(jsonPath("$.detail").isNotEmpty)
+			.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+	}
+
+	@Test
+	fun `refresh rotates the token and a concurrent replay does not revoke the family`() {
 		val email = uniqueEmail()
 		register(email)
 		val login = login(email)
@@ -132,14 +153,33 @@ class AuthIntegrationTest : IntegrationTestBase() {
 		val secondCookie = refreshCookie(refreshed)
 		org.junit.jupiter.api.Assertions.assertNotEquals(firstCookie, secondCookie)
 
-		// Replaying the first token is treated as theft and revokes the family.
+		// The losing side of a race is rejected without killing the family, so
+		// the winner's cookie keeps working.
 		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, firstCookie)))
-			.andExpect(status().isUnauthorized)
-			.andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("REFRESH_IN_PROGRESS"))
 
 		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, secondCookie)))
-			.andExpect(status().isUnauthorized)
-			.andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+			.andExpect(status().isOk)
+	}
+
+	@Test
+	fun `refresh slides the refresh token expiry forward`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val userId = users.findByEmail(email)!!.id
+		val firstExpiry = refreshTokens.findAll().filter { it.userId == userId }.single().expiresAt
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, refreshCookie(login))))
+			.andExpect(status().isOk)
+
+		val expiries = refreshTokens.findAll().filter { it.userId == userId }.map { it.expiresAt }
+		org.junit.jupiter.api.Assertions.assertEquals(2, expiries.size)
+		org.junit.jupiter.api.Assertions.assertTrue(
+			expiries.max() > firstExpiry,
+			"a rotated token should outlive the one it replaced",
+		)
 	}
 
 	@Test
@@ -162,14 +202,20 @@ class AuthIntegrationTest : IntegrationTestBase() {
 		register(email)
 		val login = login(email)
 		val cookie = refreshCookie(login)
+		val oldAccessToken = accessToken(login)
 
 		mockMvc.perform(
 			post("/api/v1/users/me/password")
-				.header(HttpHeaders.AUTHORIZATION, "Bearer ${accessToken(login)}")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer $oldAccessToken")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""{"current_password":"$VALID_PASSWORD","new_password":"$NEW_PASSWORD"}"""),
 		)
 			.andExpect(status().isNoContent)
+
+		// The access token was valid seconds ago, but its `tv` claim is stale now.
+		mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer $oldAccessToken"))
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
 
 		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, cookie)))
 			.andExpect(status().isUnauthorized)

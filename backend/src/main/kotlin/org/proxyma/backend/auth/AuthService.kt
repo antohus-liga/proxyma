@@ -117,6 +117,7 @@ class AuthService(
 		}
 		passwordPolicy.validateOrThrow(request.newPassword, "new_password")
 		user.passwordHash = requireNotNull(passwordEncoder.encode(request.newPassword))
+		user.tokenVersion += 1
 		users.save(user)
 		refreshTokens.revokeAllForUser(user.id)
 	}
@@ -136,6 +137,7 @@ class AuthService(
 		user.suspendedAt = now
 		user.suspendedByUserId = actorUserId
 		user.suspensionReason = reason
+		user.tokenVersion += 1
 		users.save(user)
 		refreshTokens.revokeAllForUser(user.id)
 	}
@@ -147,11 +149,16 @@ class AuthService(
 		user.suspendedAt = null
 		user.suspendedByUserId = null
 		user.suspensionReason = null
+		// Do not resurrect tokens issued before the suspension.
+		user.tokenVersion += 1
 		users.save(user)
 	}
 
 	@Transactional
 	fun forceLogout(userId: UUID) {
+		val user = users.findById(userId).orElseThrow { notFound() }
+		user.tokenVersion += 1
+		users.save(user)
 		refreshTokens.revokeAllForUser(userId)
 	}
 

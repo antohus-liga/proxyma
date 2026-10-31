@@ -33,6 +33,9 @@ class JwtService(
 			.issuedAt(now)
 			.expiresAt(now.plus(ttl))
 			.id(UUID.randomUUID().toString())
+			// Bumped whenever credentials or session state change, so access
+			// tokens can be retired before their natural expiry.
+			.claim("tv", user.tokenVersion)
 			.build()
 		val header = JwsHeader.with(MacAlgorithm.HS256).build()
 		val token = encoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue

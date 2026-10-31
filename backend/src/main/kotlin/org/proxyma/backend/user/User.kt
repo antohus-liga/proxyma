@@ -63,6 +63,13 @@ class User(
 	@Column(name = "last_login_at")
 	var lastLoginAt: Instant? = null,
 
+	/**
+	 * Embedded in every access token as the `tv` claim. Bumping it retires all
+	 * access tokens issued before the change.
+	 */
+	@Column(name = "token_version", nullable = false)
+	var tokenVersion: Int = 0,
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false)
 	var createdAt: Instant = Instant.now(),

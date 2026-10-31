@@ -35,13 +35,15 @@ class AuthController(
 	fun register(
 		@Valid @RequestBody request: RegisterRequest,
 		httpRequest: HttpServletRequest,
+		httpResponse: HttpServletResponse,
 	): UserResponse {
-		rateLimit.enforce(
+		val decision = rateLimit.enforce(
 			"register:ip",
 			clientIp(httpRequest),
 			properties.auth.rateLimit.registerPerMinute,
 			Duration.ofMinutes(1),
 		)
+		applyRateLimitHeaders(httpResponse, decision)
 		return authService.register(request)
 	}
 
@@ -52,13 +54,14 @@ class AuthController(
 		httpResponse: HttpServletResponse,
 	): LoginResponse {
 		val ip = clientIp(httpRequest)
-		rateLimit.enforce("login:ip", ip, properties.auth.rateLimit.loginPerMinute, Duration.ofMinutes(1))
-		rateLimit.enforce(
+		val byIp = rateLimit.enforce("login:ip", ip, properties.auth.rateLimit.loginPerMinute, Duration.ofMinutes(1))
+		val byAccount = rateLimit.enforce(
 			"login:account",
 			request.email.trim().lowercase(),
 			properties.auth.rateLimit.accountLoginPerMinute,
 			Duration.ofMinutes(1),
 		)
+		applyRateLimitHeaders(httpResponse, byIp, byAccount)
 
 		val result = authService.login(request, httpRequest.getHeader(HttpHeaders.USER_AGENT), inetAddress(ip))
 		setRefreshCookie(httpResponse, result)
@@ -71,7 +74,13 @@ class AuthController(
 		httpResponse: HttpServletResponse,
 	): LoginResponse {
 		val ip = clientIp(httpRequest)
-		rateLimit.enforce("refresh:ip", ip, properties.auth.rateLimit.refreshPerMinute, Duration.ofMinutes(1))
+		val decision = rateLimit.enforce(
+			"refresh:ip",
+			ip,
+			properties.auth.rateLimit.refreshPerMinute,
+			Duration.ofMinutes(1),
+		)
+		applyRateLimitHeaders(httpResponse, decision)
 
 		val rawToken = refreshToken(httpRequest)
 			?: run {
@@ -88,7 +97,11 @@ class AuthController(
 			setRefreshCookie(httpResponse, result)
 			result.response
 		} catch (ex: ApiException) {
-			httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.clear())
+			// A lost race means another request already rotated the cookie. That
+			// request's response may have set a valid cookie, so do not clear it.
+			if (ex.code != RefreshTokenService.REFRESH_IN_PROGRESS) {
+				httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.clear())
+			}
 			throw ex
 		}
 	}
@@ -106,6 +119,18 @@ class AuthController(
 	private fun setRefreshCookie(response: HttpServletResponse, result: AuthService.AuthResult) {
 		val maxAge = Duration.between(clock.instant(), result.refreshExpiresAt).coerceAtLeast(Duration.ZERO)
 		response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.create(result.refreshToken, maxAge))
+	}
+
+	/**
+	 * Advertises the remaining budget of the tightest bucket. Login has two
+	 * buckets (per IP and per account), so the client is told about whichever
+	 * one is closer to being exhausted.
+	 */
+	private fun applyRateLimitHeaders(response: HttpServletResponse, vararg decisions: RateLimitService.Decision) {
+		val tightest = decisions.minByOrNull { it.remaining } ?: return
+		response.setHeader(RateLimitService.HEADER_LIMIT, tightest.limit.toString())
+		response.setHeader(RateLimitService.HEADER_REMAINING, tightest.remaining.toString())
+		response.setHeader(RateLimitService.HEADER_RESET, tightest.retryAfterSeconds.toString())
 	}
 
 	private fun refreshToken(request: HttpServletRequest): String? =

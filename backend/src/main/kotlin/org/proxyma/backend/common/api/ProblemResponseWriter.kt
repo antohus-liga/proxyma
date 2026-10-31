@@ -1,14 +1,18 @@
 package org.proxyma.backend.common.api
 
-import tools.jackson.databind.ObjectMapper
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Writes problem+json responses from places that are outside the MVC exception
  * handling pipeline, such as security filters.
+ *
+ * The body comes from [ApiProblem], the same factory MVC uses, so both paths
+ * produce an identical document.
  */
 @Component
 class ProblemResponseWriter(
@@ -16,6 +20,7 @@ class ProblemResponseWriter(
 ) {
 
 	fun write(
+		request: HttpServletRequest,
 		response: HttpServletResponse,
 		status: Int,
 		code: String,
@@ -30,19 +35,10 @@ class ProblemResponseWriter(
 		response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
 		headers.forEach { (name, value) -> response.setHeader(name, value) }
 
-		val body = linkedMapOf(
-			"type" to "about:blank",
-			"title" to HttpStatusText.titleFor(status),
-			"status" to status,
-			"code" to code,
-			"detail" to detail,
+		objectMapper.writeValue(
+			response.outputStream,
+			ApiProblem.body(HttpStatus.valueOf(status), code, detail, request.requestURI),
 		)
-		objectMapper.writeValue(response.outputStream, body)
 		response.flushBuffer()
 	}
-}
-
-private object HttpStatusText {
-	fun titleFor(status: Int): String =
-		org.springframework.http.HttpStatus.resolve(status)?.reasonPhrase ?: "Error"
 }
