@@ -3,6 +3,7 @@
 > *Always near, always here.*
 
 ![Status](https://img.shields.io/badge/status-design%20stage-orange)
+![CI](https://github.com/antohus-liga/proxyma/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 **Proxyma is a reverse proxy you don't have to babysit.**
@@ -121,6 +122,20 @@ bun run dev
 docker build -t proxyma-proxy ./proxy
 ```
 5. Open the dashboard (by default at `http://localhost:5173`), create an organisation, and you're in. The backend will spawn your proxy container from the image you just built.
+
+## Tests
+
+Backend tests use a throwaway PostgreSQL container through Testcontainers, so Docker must be
+running:
+
+```bash
+cd backend
+./gradlew test
+```
+
+The integration classes are skipped automatically when no Docker daemon is reachable. CI runs the
+full suite on every push and pull request, and fails if any test was skipped, so a broken Docker
+setup cannot silently hide integration coverage.
 
 ## Repository structure
 
