@@ -1,16 +1,15 @@
 package org.proxyma.backend
 
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Testcontainers
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
+@Import(TestcontainersConfiguration::class)
 @TestPropertySource(
 	properties = [
 		"proxyma.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
@@ -23,12 +22,4 @@ import org.testcontainers.junit.jupiter.Testcontainers
 		"proxyma.auth.rate-limit.refresh-per-minute=10000",
 	],
 )
-abstract class IntegrationTestBase {
-
-	companion object {
-		@Container
-		@ServiceConnection
-		@JvmStatic
-		val postgres = PostgreSQLContainer("postgres:17-alpine")
-	}
-}
+abstract class IntegrationTestBase

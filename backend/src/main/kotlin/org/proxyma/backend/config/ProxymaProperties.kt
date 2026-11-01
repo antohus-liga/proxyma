@@ -7,6 +7,7 @@ data class ProxymaProperties(
 	val jwt: JwtProperties = JwtProperties(),
 	val auth: AuthProperties = AuthProperties(),
 	val cors: CorsProperties = CorsProperties(),
+	val admin: AdminProperties = AdminProperties(),
 )
 
 data class JwtProperties(
@@ -56,4 +57,22 @@ data class RateLimitProperties(
 
 data class CorsProperties(
 	val allowedOrigins: List<String> = emptyList(),
+)
+
+data class AdminProperties(
+	/** The admin panel is off unless the operator explicitly enables it. */
+	val enabled: Boolean = false,
+	/**
+	 * Optional source-network allowlist. Empty means "no network restriction".
+	 * Entries are IPv4/IPv6 addresses or CIDR ranges.
+	 */
+	val allowedCidrs: List<String> = emptyList(),
+	val rateLimit: AdminRateLimitProperties = AdminRateLimitProperties(),
+)
+
+data class AdminRateLimitProperties(
+	/** General budget for every `/admin/...` endpoint, per admin. */
+	val requestsPerMinute: Int = 120,
+	/** Stricter budget for suspend and force-logout, per admin. */
+	val riskyPerMinute: Int = 10,
 )

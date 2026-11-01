@@ -1,7 +1,10 @@
 package org.proxyma.backend.security
 
+import org.proxyma.backend.admin.AdminAccessFilter
+import org.proxyma.backend.admin.AdminAvailabilityFilter
 import org.proxyma.backend.common.api.ProblemResponseWriter
 import org.proxyma.backend.config.ProxymaProperties
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -15,6 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import org.springframework.web.filter.CorsFilter
 
 @Configuration
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class SecurityConfig {
 
 	@Bean
@@ -23,6 +27,8 @@ class SecurityConfig {
 		entryPoint: RestAuthenticationEntryPoint,
 		accessDeniedHandler: RestAccessDeniedHandler,
 		userStatusFilter: UserStatusFilter,
+		adminAvailabilityFilter: AdminAvailabilityFilter,
+		adminAccessFilter: AdminAccessFilter,
 	): SecurityFilterChain {
 		http
 			.csrf { it.disable() }
@@ -38,6 +44,10 @@ class SecurityConfig {
 					"/api/v1/auth/logout",
 				).permitAll()
 				authorize.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+				authorize.requestMatchers(
+					AdminAccessFilter.ADMIN_PATH,
+					"${AdminAccessFilter.ADMIN_PATH}/**",
+				).hasAuthority(AdminAccessFilter.PLATFORM_ADMIN_AUTHORITY)
 				authorize.anyRequest().authenticated()
 			}
 			.oauth2ResourceServer { resourceServer ->
@@ -48,7 +58,9 @@ class SecurityConfig {
 				exceptions.authenticationEntryPoint(entryPoint)
 				exceptions.accessDeniedHandler(accessDeniedHandler)
 			}
-			.addFilterAfter(userStatusFilter, BearerTokenAuthenticationFilter::class.java)
+			.addFilterBefore(adminAvailabilityFilter, BearerTokenAuthenticationFilter::class.java)
+			.addFilterAfter(adminAccessFilter, BearerTokenAuthenticationFilter::class.java)
+			.addFilterAfter(userStatusFilter, AdminAccessFilter::class.java)
 
 		return http.build()
 	}
@@ -78,5 +90,19 @@ class SecurityConfig {
 	 */
 	@Bean
 	fun corsFilterRegistration(filter: CorsFilter): FilterRegistrationBean<CorsFilter> =
+		FilterRegistrationBean(filter).apply { isEnabled = false }
+
+	/**
+	 * The admin filter is a `Filter` bean too. It must only run inside the
+	 * security chain, after bearer authentication has populated the context.
+	 */
+	@Bean
+	fun adminAvailabilityFilterRegistration(
+		filter: AdminAvailabilityFilter,
+	): FilterRegistrationBean<AdminAvailabilityFilter> =
+		FilterRegistrationBean(filter).apply { isEnabled = false }
+
+	@Bean
+	fun adminAccessFilterRegistration(filter: AdminAccessFilter): FilterRegistrationBean<AdminAccessFilter> =
 		FilterRegistrationBean(filter).apply { isEnabled = false }
 }

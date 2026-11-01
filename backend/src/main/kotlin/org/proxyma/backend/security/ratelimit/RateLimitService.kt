@@ -81,11 +81,16 @@ class RateLimitService(
 		val remaining: Long,
 		val retryAfterSeconds: Long,
 	) {
-		fun headers(): HttpHeaders = HttpHeaders().apply {
-			set(HttpHeaders.RETRY_AFTER, retryAfterSeconds.toString())
+		/** The three budget headers advertised on successful responses. */
+		fun budgetHeaders(): HttpHeaders = HttpHeaders().apply {
 			set(HEADER_LIMIT, limit.toString())
 			set(HEADER_REMAINING, remaining.toString())
 			set(HEADER_RESET, retryAfterSeconds.toString())
+		}
+
+		/** Budget headers plus `Retry-After`, for a `429` response. */
+		fun headers(): HttpHeaders = budgetHeaders().apply {
+			set(HttpHeaders.RETRY_AFTER, retryAfterSeconds.toString())
 		}
 	}
 

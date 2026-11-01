@@ -108,18 +108,31 @@ class AuthService(
 	@Transactional
 	fun changePassword(userId: UUID, request: ChangePasswordRequest) {
 		val user = users.findById(userId).orElseThrow { invalidCredentials() }
-		if (!passwordEncoder.matches(request.currentPassword, user.passwordHash)) {
+		verifyPassword(user, request.currentPassword)
+		passwordPolicy.validateOrThrow(request.newPassword, "new_password")
+		user.passwordHash = requireNotNull(passwordEncoder.encode(request.newPassword))
+		user.tokenVersion += 1
+		users.save(user)
+		refreshTokens.revokeAllForUser(user.id)
+	}
+
+	/**
+	 * Step-up check used by the admin API for risky actions. It deliberately
+	 * takes the admin's own password again instead of trusting the access token.
+	 */
+	fun verifyPassword(userId: UUID, password: String) {
+		val user = users.findById(userId).orElseThrow { invalidCredentials() }
+		verifyPassword(user, password)
+	}
+
+	private fun verifyPassword(user: User, password: String) {
+		if (!passwordEncoder.matches(password, user.passwordHash)) {
 			throw ApiException(
 				status = HttpStatus.FORBIDDEN,
 				code = "REAUTH_FAILED",
 				message = "The current password is incorrect.",
 			)
 		}
-		passwordPolicy.validateOrThrow(request.newPassword, "new_password")
-		user.passwordHash = requireNotNull(passwordEncoder.encode(request.newPassword))
-		user.tokenVersion += 1
-		users.save(user)
-		refreshTokens.revokeAllForUser(user.id)
 	}
 
 	@Transactional
@@ -138,7 +151,7 @@ class AuthService(
 		user.suspendedByUserId = actorUserId
 		user.suspensionReason = reason
 		user.tokenVersion += 1
-		users.save(user)
+		users.saveAndFlush(user)
 		refreshTokens.revokeAllForUser(user.id)
 	}
 
@@ -151,7 +164,7 @@ class AuthService(
 		user.suspensionReason = null
 		// Do not resurrect tokens issued before the suspension.
 		user.tokenVersion += 1
-		users.save(user)
+		users.saveAndFlush(user)
 	}
 
 	@Transactional
