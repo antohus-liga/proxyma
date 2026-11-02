@@ -140,23 +140,22 @@ The current `frontend/public/favicon.ico` is the Vue favicon and must not ship.
 
 ### 2.6 Globe artwork
 
-`frontend/src/assets/globe-proxyma.webp` (1024×1024, transparent, ~281 KB) and its PNG fallback are editorial artwork: a hand-drawn wireframe globe with a connected network mesh in oxblood/brown, sampled around `#6F3127`.
+`frontend/src/assets/globe-proxyma.webp` (1024×1024, transparent, ~281 KB), a 512×512 WebP variant for 1× displays, and its PNG fallback are editorial artwork: a hand-drawn wireframe globe with a connected network mesh in oxblood/brown, sampled around `#6F3127`.
 
 **Purpose:** proximity and connected traffic. It supports the homepage narrative; it is not decoration for the dashboard.
 
 **MUST**
 
 - Use it on the **public homepage only** for now.
-- Preserve its oxblood colour. Do not tint it teal, apply a duotone, or add a glow.
+- Preserve its oxblood colour in light mode. In dark mode, invert the ink to a warm light tone with CSS: `filter: invert(1) hue-rotate(180deg) saturate(1.15) brightness(0.94)`. Do not tint it teal, apply a duotone, or add a glow.
 - On light paper, place it directly on the canvas with transparency.
-- In dark mode, place it on a paper-coloured plate (`#F7F6F3`) with `--px-radius-card`, like a printed inset. It must not sit directly on the dark canvas.
+- In dark mode, keep the treated artwork directly on the canvas. Do not put it on a plate, card, or light background.
 - Mark it `alt=""` when it is purely decorative.
 - Do not render it below 240px wide; the mesh detail collapses.
-- Prefer WebP. Keep the PNG only as a fallback. Target under 150 KB for the hero; the current WebP is a first export, not the final optimisation.
+- Prefer WebP. Keep the PNG only as a fallback. Serve the 512×512 WebP (~100 KB) at 1× and the 1024×1024 WebP (~281 KB) at 2×.
 
 **SHOULD**
 
-- Add a 512×512 WebP variant when available, and serve it with `<picture>` and `srcset`.
 - Hide the artwork below 480px, or place it below the hero copy at 280–320px.
 - Lazy-load it if it falls below the fold.
 
@@ -460,7 +459,7 @@ A **2px** optical nudge is permitted only for icon alignment, using `transform: 
 | `--px-radius-none` | `0` | Tables, full-bleed sections |
 | `--px-radius-badge` | `4px` | Badges, tags |
 | `--px-radius-control` | `6px` | Buttons, inputs, selects |
-| `--px-radius-card` | `8px` | Cards, panels, artwork plate |
+| `--px-radius-card` | `8px` | Cards and panels |
 | `--px-radius-dialog` | `12px` | Dialogs, sheets |
 | `--px-radius-full` | `999px` | Status dots, avatars, count pills only |
 | `--px-border-width` | `1px` | Default border |
@@ -1758,7 +1757,7 @@ Admin is a separate platform context, not an organisation role.
 1. **Header** — text wordmark `proxyma` left; “Sign in” and “Create an account” right. No mega-menu.
 2. **Hero** — two columns on desktop:
    - Left: eyebrow “Managed reverse proxy”, H1 “Always near, always here.”, supporting line “A reverse proxy you don't have to babysit.”, a short paragraph, primary “Create an account”, secondary “Sign in”.
-   - Right: globe artwork on a paper plate in dark mode.
+   - Right: globe artwork, drawn directly on the canvas. In dark mode its ink is inverted to a warm light tone; there is no plate, card, or background behind it.
 3. **Value props** — three items, no cards:
    - “Your own proxy” — an isolated container and URL for each organisation.
    - “Traffic you can see” — live requests, latency, and bans without a terminal.
@@ -1772,6 +1771,7 @@ Admin is a separate platform context, not an organisation role.
 - Canvas `--px-color-canvas`, ink type, generous whitespace.
 - H1 uses the display size at ≥1024px and h1 size below.
 - The globe is the only large visual. It must not become a background behind text.
+- In dark mode, invert the globe's ink to a warm light tone and keep it on the canvas. No plate, card, or background.
 - No gradient overlays, no floating cards, no animated hero.
 - The homepage may use a 12-column grid with a 48% / 52% split for copy and art.
 - On mobile, art moves below the hero copy and above the value props, or is hidden below 480px.
@@ -2536,7 +2536,7 @@ The homepage may add concrete value propositions, but it must not invent custome
 | Reserve teal for links, focus, selected nav, live | Use teal as a decorative background wash |
 | Pair status colour with text or a dot | Rely on red/green alone |
 | Use semantic tokens | Inline `#0E6E75` in a component |
-| Use a paper plate for the globe in dark mode | Place oxblood art directly on a near-black canvas |
+| Invert the globe's ink to warm light on the dark canvas | Put the globe on a white or paper plate in dark mode |
 | Keep danger for destructive actions | Use danger red for a high but healthy metric |
 
 ### 15.3 Typography
@@ -2957,7 +2957,7 @@ const stateTone = computed(() => {
 - [ ] Technical values use JetBrains Mono.
 - [ ] Icons are Lucide, correct size and stroke.
 - [ ] Light and dark screenshots both look intentional.
-- [ ] The globe appears only on the homepage, with the dark-mode paper plate.
+- [ ] The globe appears only on the homepage, with its ink inverted for dark mode and no plate behind it.
 
 **Behaviour**
 
@@ -3221,15 +3221,14 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 | # | Question | Current default | Owner |
 |---|---|---|---|
 | 1 | When will the official logo and favicon be available? | Text wordmark; favicon intentionally empty | Brand |
-| 2 | When will the 512×512 globe variant be exported? | Serve the 1024 WebP; hide below 480px | Brand |
-| 3 | What is the final latency-aggregate shape and release? | Design against `latency_ms: { p50, p95, p99 }`; do not render a time series until it exists | Backend |
-| 4 | Is ownership transfer in scope? | No transfer UI; `OWNER_PROTECTED` explains the limit | Product |
-| 5 | Is the homepage part of this SPA or a separate marketing site? | Design as a public route in this repo; decide before implementation | Product |
-| 6 | Which locales follow `en-GB`? | Only `en-GB` ships; the switcher stays hidden | Product |
-| 7 | Is email change supported? | Treat email as read-only until an endpoint exists | Backend |
-| 8 | Is audit export in scope? | Read-only audit; no export control | Product |
-| 9 | Should admin gain org-level controls beyond account suspension and force logout? | Account-only; do not invent org suspension | Product |
-| 10 | Should the timezone be user-selectable as well as local? | Browser-local with a visible label | Product |
+| 2 | What is the final latency-aggregate shape and release? | Design against `latency_ms: { p50, p95, p99 }`; do not render a time series until it exists | Backend |
+| 3 | Is ownership transfer in scope? | No transfer UI; `OWNER_PROTECTED` explains the limit | Product |
+| 4 | Is the homepage part of this SPA or a separate marketing site? | Design as a public route in this repo; decide before implementation | Product |
+| 5 | Which locales follow `en-GB`? | Only `en-GB` ships; the switcher stays hidden | Product |
+| 6 | Is email change supported? | Treat email as read-only until an endpoint exists | Backend |
+| 7 | Is audit export in scope? | Read-only audit; no export control | Product |
+| 8 | Should admin gain org-level controls beyond account suspension and force logout? | Account-only; do not invent org suspension | Product |
+| 9 | Should the timezone be user-selectable as well as local? | Browser-local with a visible label | Product |
 
 **Decision log**
 
@@ -3248,7 +3247,7 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 | 2026-11-02 | Timestamps in local timezone with a persistent timezone label | Approved |
 | 2026-11-02 | Text wordmark placeholder; favicon empty until the official logo | Approved |
 | 2026-11-02 | Homepage copy: “Always near, always here.” / “A reverse proxy you don't have to babysit.” | Approved |
-| 2026-11-02 | Globe art is homepage-only, oxblood preserved, paper plate in dark mode | Approved |
+| 2026-11-02 | Globe art is homepage-only, oxblood ink in light mode, inverted to warm light in dark mode with no plate | Approved |
 | 2026-11-02 | Latency time series requires a `/logs/stats` aggregate extension | Blocked on backend |
 
 ### 17.5 Changelog
@@ -3256,3 +3255,4 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2 November 2026 | Initial design system: brand, tokens, typography, layout, components, application patterns, data visualisation, interaction, responsive, accessibility, voice, implementation, appendices. |
+| 1.1 | 2 November 2026 | Homepage: dark-mode globe inverts its ink to a warm light tone on the canvas; the paper plate is removed. |

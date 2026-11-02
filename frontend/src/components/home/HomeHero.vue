@@ -172,9 +172,9 @@ const { t } = useI18n()
 </style>
 
 <style>
-:root[data-theme='dark'] .hero__picture {
-  padding: var(--px-space-4);
-  border-radius: var(--px-radius-card);
-  background: var(--px-color-artwork-plate);
+/* Invert the oxblood ink to a warm light tone so the line art reads on the
+   dark canvas without a plate or background behind it. */
+:root[data-theme='dark'] .hero__image {
+  filter: invert(1) hue-rotate(180deg) saturate(1.15) brightness(0.94);
 }
 </style>
