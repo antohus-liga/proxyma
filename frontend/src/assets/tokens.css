@@ -1,0 +1,302 @@
+/*
+ * Proxyma design tokens
+ *
+ * Layer 1: primitives. Raw values, never used directly in components.
+ * Layer 2: semantic tokens. The only tokens components may use.
+ *
+ * Light values live on :root. Dark values override on :root[data-theme='dark'].
+ */
+
+:root {
+  /* Primitives — light */
+  --px-paper-0: #ffffff;
+  --px-paper-50: #f7f6f3;
+  --px-paper-100: #f1efea;
+  --px-ink-900: #17191c;
+  --px-ink-700: #555b61;
+  --px-ink-600: #6b7178;
+  --px-ink-400: #8a8f88;
+  --px-line-200: #e4e1da;
+  --px-teal-700: #0e6e75;
+  --px-teal-800: #0a5a60;
+  --px-teal-100: #e4f2f2;
+  --px-green-700: #157f3d;
+  --px-amber-800: #8a4b00;
+  --px-red-700: #b42318;
+  --px-blue-700: #1d4ed8;
+  --px-orange-700: #c2410c;
+  --px-amber-700: #b45309;
+
+  /* Semantic colours — light */
+  --px-color-canvas: #f7f6f3;
+  --px-color-surface: #ffffff;
+  --px-color-surface-subtle: #f1efea;
+  --px-color-surface-inverse: #17191c;
+  --px-color-surface-inverse-hover: #2a2d31;
+  --px-color-surface-inverse-active: #3a3e43;
+  --px-color-artwork-plate: #f7f6f3;
+  --px-color-text-primary: #17191c;
+  --px-color-text-secondary: #555b61;
+  --px-color-text-tertiary: #6b7178;
+  --px-color-text-disabled: #8a8f88;
+  --px-color-text-inverse: #ffffff;
+  --px-color-border-subtle: #e4e1da;
+  --px-color-border-strong: #8a8f88;
+  --px-color-border-disabled: #e4e1da;
+  --px-color-accent: #0e6e75;
+  --px-color-accent-hover: #0a5a60;
+  --px-color-accent-active: #08494e;
+  --px-color-accent-subtle: #e4f2f2;
+  --px-color-accent-contrast: #ffffff;
+  --px-color-success-fg: #157f3d;
+  --px-color-success-bg: #edf8f1;
+  --px-color-success-border: #b7e2c5;
+  --px-color-success-solid: #157f3d;
+  --px-color-warning-fg: #8a4b00;
+  --px-color-warning-bg: #fdf5e8;
+  --px-color-warning-border: #ebcf9a;
+  --px-color-warning-solid: #b45309;
+  --px-color-danger-fg: #b42318;
+  --px-color-danger-bg: #fdf0ee;
+  --px-color-danger-border: #f0bdb7;
+  --px-color-danger-solid: #b42318;
+  --px-color-danger-contrast: #ffffff;
+  --px-color-info-fg: #1d4ed8;
+  --px-color-info-bg: #eef3fe;
+  --px-color-info-border: #c3d4fa;
+  --px-color-info-solid: #1d4ed8;
+  --px-color-focus: #0e6e75;
+  --px-color-overlay: rgba(10, 12, 13, 0.5);
+  --px-color-selection: #d5ebea;
+  --px-color-skeleton: #edeae4;
+  --px-color-live: #0e6e75;
+
+  /* State overlays */
+  --px-state-hover: rgba(23, 25, 28, 0.04);
+  --px-state-active: rgba(23, 25, 28, 0.08);
+  --px-state-selected: rgba(14, 110, 117, 0.08);
+  --px-state-disabled: 0.45;
+  --px-state-disabled-text: 0.55;
+
+  /* Chart colours — light */
+  --px-chart-allowed: #0e6e75;
+  --px-chart-rate-limited: #b45309;
+  --px-chart-blocked: #c2410c;
+  --px-chart-malicious: #b42318;
+  --px-chart-total: #555b61;
+  --px-chart-grid: #e4e1da;
+  --px-chart-axis: #6b7178;
+  --px-chart-latency-p50: #17191c;
+  --px-chart-latency-p95: #0e6e75;
+  --px-chart-latency-p99: #6b7178;
+  --px-chart-crosshair: #8a8f88;
+
+  /* Typography */
+  --px-font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, blinkmacsystemfont, 'Segoe UI',
+    roboto, 'Helvetica Neue', arial, sans-serif;
+  --px-font-mono:
+    'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Code', 'Roboto Mono',
+    menlo, consolas, monospace;
+
+  --px-font-weight-regular: 400;
+  --px-font-weight-medium: 500;
+  --px-font-weight-semibold: 600;
+
+  --px-font-size-display: 48px;
+  --px-font-size-h1: 32px;
+  --px-font-size-h2: 24px;
+  --px-font-size-h3: 18px;
+  --px-font-size-h4: 15px;
+  --px-font-size-body-lg: 17px;
+  --px-font-size-body: 15px;
+  --px-font-size-body-strong: 15px;
+  --px-font-size-control: 14px;
+  --px-font-size-input: 14px;
+  --px-font-size-small: 13px;
+  --px-font-size-small-strong: 13px;
+  --px-font-size-caption: 12px;
+  --px-font-size-mono: 13px;
+  --px-font-size-mono-sm: 12px;
+  --px-font-size-metric: 28px;
+
+  --px-line-display: 1.05;
+  --px-line-heading: 1.2;
+  --px-line-title: 1.3;
+  --px-line-body: 1.6;
+  --px-line-control: 1.4;
+  --px-line-compact: 1.5;
+
+  --px-tracking-display: -0.03em;
+  --px-tracking-heading: -0.02em;
+  --px-tracking-title: -0.015em;
+  --px-tracking-card: -0.01em;
+  --px-tracking-none: 0;
+  --px-tracking-label: 0.06em;
+
+  /* Spacing */
+  --px-space-0: 0;
+  --px-space-1: 4px;
+  --px-space-2: 8px;
+  --px-space-3: 12px;
+  --px-space-4: 16px;
+  --px-space-5: 20px;
+  --px-space-6: 24px;
+  --px-space-8: 32px;
+  --px-space-10: 40px;
+  --px-space-12: 48px;
+  --px-space-16: 64px;
+  --px-space-20: 80px;
+  --px-space-24: 96px;
+
+  /* Radius */
+  --px-radius-none: 0;
+  --px-radius-badge: 4px;
+  --px-radius-control: 6px;
+  --px-radius-card: 8px;
+  --px-radius-dialog: 12px;
+  --px-radius-full: 999px;
+
+  /* Borders */
+  --px-border-width: 1px;
+  --px-border-width-strong: 2px;
+
+  /* Elevation */
+  --px-shadow-sm: 0 1px 2px rgba(23, 25, 28, 0.08), 0 4px 12px rgba(23, 25, 28, 0.06);
+  --px-shadow-md: 0 8px 24px rgba(23, 25, 28, 0.12), 0 2px 6px rgba(23, 25, 28, 0.06);
+  --px-shadow-lg: 0 16px 48px rgba(23, 25, 28, 0.16), 0 4px 12px rgba(23, 25, 28, 0.08);
+
+  /* Focus */
+  --px-focus-width: 2px;
+  --px-focus-offset: 2px;
+  --px-focus-ring:
+    0 0 0 var(--px-focus-offset) var(--px-color-canvas),
+    0 0 0 calc(var(--px-focus-offset) + var(--px-focus-width)) var(--px-color-focus);
+
+  /* Motion */
+  --px-duration-instant: 0ms;
+  --px-duration-fast: 120ms;
+  --px-duration-normal: 180ms;
+  --px-duration-slow: 240ms;
+  --px-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --px-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Breakpoints (documentation only; media queries need literals) */
+  --px-breakpoint-sm: 480px;
+  --px-breakpoint-md: 768px;
+  --px-breakpoint-lg: 1024px;
+  --px-breakpoint-xl: 1280px;
+  --px-breakpoint-2xl: 1536px;
+
+  /* Layout */
+  --px-sidebar-width: 232px;
+  --px-sidebar-rail-width: 64px;
+  --px-topbar-height: 56px;
+  --px-content-max: 1280px;
+  --px-form-max: 640px;
+  --px-prose-max: 720px;
+  --px-auth-card-max: 400px;
+  --px-dialog-sm: 480px;
+  --px-dialog-md: 560px;
+  --px-dialog-lg: 720px;
+  --px-drawer-width: 320px;
+  --px-page-padding: 32px;
+  --px-page-padding-md: 24px;
+  --px-page-padding-sm: 16px;
+
+  /* Z-index */
+  --px-z-base: 0;
+  --px-z-sticky: 100;
+  --px-z-dropdown: 200;
+  --px-z-overlay: 300;
+  --px-z-dialog: 400;
+  --px-z-toast: 500;
+  --px-z-tooltip: 600;
+  --px-z-skip-link: 700;
+}
+
+:root[data-theme='dark'] {
+  /* Primitives — dark */
+  --px-paper-50: #f2f1ed;
+  --px-ink-950: #0d0f10;
+  --px-night-950: #0d0f10;
+  --px-night-900: #141719;
+  --px-night-850: #1a1e20;
+  --px-night-800: #272b2d;
+  --px-night-600: #6b7170;
+  --px-teal-300: #5cc8c0;
+  --px-teal-200: #7ad8d1;
+  --px-teal-950: #123033;
+  --px-green-300: #5bcb8a;
+  --px-amber-300: #f0b45a;
+  --px-red-300: #ff8a7a;
+  --px-blue-300: #7fb0ff;
+  --px-orange-300: #ff9a62;
+
+  /* Semantic colours — dark */
+  --px-color-canvas: #0d0f10;
+  --px-color-surface: #141719;
+  --px-color-surface-subtle: #1a1e20;
+  --px-color-surface-inverse: #f2f1ed;
+  --px-color-surface-inverse-hover: #ffffff;
+  --px-color-surface-inverse-active: #dcd9d2;
+  --px-color-artwork-plate: #f7f6f3;
+  --px-color-text-primary: #f2f1ed;
+  --px-color-text-secondary: #a8ada9;
+  --px-color-text-tertiary: #858b87;
+  --px-color-text-disabled: #6b7170;
+  --px-color-text-inverse: #0d0f10;
+  --px-color-border-subtle: #272b2d;
+  --px-color-border-strong: #6b7170;
+  --px-color-border-disabled: #272b2d;
+  --px-color-accent: #5cc8c0;
+  --px-color-accent-hover: #7ad8d1;
+  --px-color-accent-active: #8ee4de;
+  --px-color-accent-subtle: #123033;
+  --px-color-accent-contrast: #062022;
+  --px-color-success-fg: #5bcb8a;
+  --px-color-success-bg: #10261a;
+  --px-color-success-border: #1f4a31;
+  --px-color-success-solid: #5bcb8a;
+  --px-color-warning-fg: #f0b45a;
+  --px-color-warning-bg: #2a2010;
+  --px-color-warning-border: #57431f;
+  --px-color-warning-solid: #f0b45a;
+  --px-color-danger-fg: #ff8a7a;
+  --px-color-danger-bg: #2a1412;
+  --px-color-danger-border: #5a2925;
+  --px-color-danger-solid: #c93535;
+  --px-color-danger-contrast: #ffffff;
+  --px-color-info-fg: #7fb0ff;
+  --px-color-info-bg: #111c33;
+  --px-color-info-border: #233a66;
+  --px-color-info-solid: #7fb0ff;
+  --px-color-focus: #5cc8c0;
+  --px-color-overlay: rgba(0, 0, 0, 0.7);
+  --px-color-selection: #1c4447;
+  --px-color-skeleton: #1d2224;
+  --px-color-live: #5cc8c0;
+
+  /* State overlays */
+  --px-state-hover: rgba(242, 241, 237, 0.06);
+  --px-state-active: rgba(242, 241, 237, 0.1);
+  --px-state-selected: rgba(92, 200, 192, 0.12);
+
+  /* Chart colours — dark */
+  --px-chart-allowed: #5cc8c0;
+  --px-chart-rate-limited: #f0b45a;
+  --px-chart-blocked: #ff9a62;
+  --px-chart-malicious: #ff7a7a;
+  --px-chart-total: #a8ada9;
+  --px-chart-grid: #272b2d;
+  --px-chart-axis: #858b87;
+  --px-chart-latency-p50: #f2f1ed;
+  --px-chart-latency-p95: #5cc8c0;
+  --px-chart-latency-p99: #858b87;
+  --px-chart-crosshair: #6b7170;
+
+  /* Elevation — dark */
+  --px-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --px-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --px-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+}

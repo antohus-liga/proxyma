@@ -1,35 +1,56 @@
-@import './base.css';
-
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+  min-height: 100dvh;
 }
 
-a,
-.green {
+.px-container {
+  width: 100%;
+  max-width: var(--px-content-max);
+  margin-inline: auto;
+  padding-inline: var(--px-page-padding);
+}
+
+.px-skip-link {
+  position: fixed;
+  inset-block-start: var(--px-space-2);
+  inset-inline-start: var(--px-space-2);
+  z-index: var(--px-z-skip-link);
+  padding: var(--px-space-2) var(--px-space-3);
+  border-radius: var(--px-radius-control);
+  background: var(--px-color-surface-inverse);
+  color: var(--px-color-text-inverse);
+  font-size: var(--px-font-size-control);
+  font-weight: var(--px-font-weight-medium);
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+  transform: translateY(calc(-100% - var(--px-space-4)));
+  transition: transform var(--px-duration-fast) var(--px-ease-out);
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+.px-skip-link:focus-visible {
+  color: var(--px-color-text-inverse);
+  text-decoration: none;
+  transform: translateY(0);
+}
+
+a {
+  color: var(--px-color-accent);
+  text-decoration: none;
+  text-underline-offset: 0.15em;
+  transition: color var(--px-duration-fast) var(--px-ease-out);
+}
+
+a:hover {
+  color: var(--px-color-accent-hover);
+  text-decoration: underline;
+}
+
+@media (max-width: 1023px) {
+  .px-container {
+    padding-inline: var(--px-page-padding-md);
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
+@media (max-width: 767px) {
+  .px-container {
+    padding-inline: var(--px-page-padding-sm);
   }
 }
