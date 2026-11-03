@@ -2,10 +2,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createI18n } from 'vue-i18n'
-import { createMemoryHistory, createRouter } from 'vue-router'
 import enGB from '@/i18n/locales/en-GB'
 import { api, ApiError, type ApiProblem, type User } from '@/lib/api'
 import CreateAccountView from '../CreateAccountView.vue'
+import { createTestRouter } from './test-router'
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
@@ -52,13 +52,7 @@ async function mountCreateAccount(path = '/create-account') {
     messages: { 'en-GB': enGB },
   })
 
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/sign-in', name: 'sign-in', component: { template: '<div />' } },
-      { path: '/create-account', name: 'create-account', component: CreateAccountView },
-    ],
-  })
+  const router = createTestRouter({ 'create-account': CreateAccountView })
 
   await router.push(path)
   await router.isReady()
@@ -90,9 +84,7 @@ describe('CreateAccountView', () => {
     const { wrapper } = await mountCreateAccount()
 
     expect(wrapper.get('h1').text()).toBe('Create your Proxyma account')
-    expect(wrapper.get('label[for="create-account-display-name"]').text()).toContain(
-      'Display name',
-    )
+    expect(wrapper.get('label[for="create-account-display-name"]').text()).toContain('Display name')
     expect(wrapper.get('label[for="create-account-email"]').text()).toContain('Email')
     expect(wrapper.get('label[for="create-account-password"]').text()).toContain('Password')
     expect(wrapper.text()).toContain('Use at least 10 characters. Avoid common passwords.')

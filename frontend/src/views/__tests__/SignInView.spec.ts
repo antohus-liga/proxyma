@@ -2,10 +2,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createI18n } from 'vue-i18n'
-import { createMemoryHistory, createRouter } from 'vue-router'
 import enGB from '@/i18n/locales/en-GB'
 import { api, ApiError, type ApiProblem, type LoginResponse } from '@/lib/api'
 import SignInView from '../SignInView.vue'
+import { createTestRouter } from './test-router'
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
@@ -57,14 +57,7 @@ async function mountSignIn(path = '/sign-in') {
     messages: { 'en-GB': enGB },
   })
 
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/sign-in', name: 'sign-in', component: SignInView },
-      { path: '/create-account', name: 'create-account', component: { template: '<div />' } },
-      { path: '/app', name: 'app', component: { template: '<div />' } },
-    ],
-  })
+  const router = createTestRouter({ 'sign-in': SignInView })
 
   await router.push(path)
   await router.isReady()

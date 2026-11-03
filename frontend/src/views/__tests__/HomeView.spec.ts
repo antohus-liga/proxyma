@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createMemoryHistory, createRouter } from 'vue-router'
 import { createI18n } from 'vue-i18n'
 import enGB from '@/i18n/locales/en-GB'
 import HomeView from '../HomeView.vue'
-
-const routes = [
-  { path: '/', component: HomeView },
-  { path: '/sign-in', component: { template: '<div />' } },
-  { path: '/create-account', component: { template: '<div />' } },
-]
+import { createTestRouter } from './test-router'
 
 async function mountHome() {
   const i18n = createI18n({
@@ -17,10 +11,7 @@ async function mountHome() {
     locale: 'en-GB',
     messages: { 'en-GB': enGB },
   })
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes,
-  })
+  const router = createTestRouter({ home: HomeView })
 
   await router.push('/')
   await router.isReady()
