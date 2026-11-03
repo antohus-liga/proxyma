@@ -11,12 +11,29 @@ test('serves the public homepage', async ({ page }) => {
   await expect(page.locator('picture img')).toBeVisible()
 })
 
-test('homepage calls to action reach the auth placeholders', async ({ page }) => {
+test('homepage calls to action reach the auth pages', async ({ page }) => {
+  await page.route('**/api/v1/auth/refresh', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/problem+json',
+      body: JSON.stringify({
+        type: 'about:blank',
+        title: 'Unauthorised',
+        status: 401,
+        detail: 'No refresh token',
+        instance: '/api/v1/auth/refresh',
+        code: 'INVALID_REFRESH_TOKEN',
+      }),
+    }),
+  )
+
   await page.goto('/')
   await page.getByRole('link', { name: 'Create an account' }).first().click()
 
   await expect(page).toHaveURL(/\/create-account$/)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Create an account')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Create your Proxyma account',
+  )
 })
 
 test('homepage has no detected accessibility violations in light mode', async ({ page }) => {

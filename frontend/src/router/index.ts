@@ -1,11 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import { i18n } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
     titleKey?: string
-    authMode?: 'signIn' | 'createAccount'
+    requiresAuth?: boolean
+    guestOnly?: boolean
   }
 }
 
@@ -21,17 +23,20 @@ const router = createRouter({
     {
       path: '/sign-in',
       name: 'sign-in',
-      component: () => import('../views/AuthPlaceholderView.vue'),
-      meta: { titleKey: 'auth.signIn.meta.title', authMode: 'signIn' },
+      component: () => import('../views/SignInView.vue'),
+      meta: { titleKey: 'auth.signIn.meta.title', guestOnly: true },
     },
     {
       path: '/create-account',
       name: 'create-account',
-      component: () => import('../views/AuthPlaceholderView.vue'),
-      meta: {
-        titleKey: 'auth.createAccount.meta.title',
-        authMode: 'createAccount',
-      },
+      component: () => import('../views/CreateAccountView.vue'),
+      meta: { titleKey: 'auth.createAccount.meta.title', guestOnly: true },
+    },
+    {
+      path: '/app',
+      name: 'app',
+      component: () => import('../views/AppPlaceholderView.vue'),
+      meta: { titleKey: 'app.signedIn.meta.title', requiresAuth: true },
     },
     {
       path: '/:pathMatch(.*)*',
@@ -45,10 +50,47 @@ const router = createRouter({
   },
 })
 
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+
+  if ((to.meta.requiresAuth || to.meta.guestOnly) && auth.status === 'idle') {
+    await auth.bootstrap()
+  }
+
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    const query: Record<string, string> = { redirect: to.fullPath }
+
+    if (auth.suspended) {
+      query.reason = 'suspended'
+    } else if (auth.sessionExpired) {
+      query.reason = 'session-expired'
+    }
+
+    return { name: 'sign-in', query }
+  }
+
+  if (to.meta.guestOnly && auth.isAuthenticated) {
+    return { name: 'app' }
+  }
+
+  return true
+})
+
 router.afterEach((to) => {
   if (to.meta.titleKey) {
     document.title = i18n.global.t(to.meta.titleKey)
   }
+
+  window.requestAnimationFrame(() => {
+    const heading = document.querySelector<HTMLElement>('#main-content h1')
+
+    if (!heading) {
+      return
+    }
+
+    heading.tabIndex = -1
+    heading.focus({ preventScroll: true })
+  })
 })
 
 export default router

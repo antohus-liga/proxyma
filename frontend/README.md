@@ -26,6 +26,19 @@ bun install
 bun dev
 ```
 
+## Local API development
+
+Vite proxies `/api` to the backend at `http://localhost:8080`, so the browser sees same-origin
+requests and the refresh cookie is sent normally.
+
+The backend marks the refresh cookie `Secure` by default. Because local development uses plain
+HTTP, refreshing a session can fail unless secure cookies are disabled for the backend process,
+for example:
+
+```sh
+proxyma.auth.cookie.secure=false
+```
+
 ## Checks
 
 ```sh

@@ -1,0 +1,250 @@
+import { computed, ref } from 'vue'
+import { defineStore } from 'pinia'
+import {
+  api,
+  asApiError,
+  type ApiError,
+  type LoginResponse,
+  type RegisterInput,
+  type User,
+} from '@/lib/api'
+
+type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous'
+
+const REFRESH_LEEWAY_SECONDS = 60
+const REFRESH_RETRY_SECONDS = 10
+const RETRYABLE_REFRESH_CODES = new Set([
+  'NETWORK_ERROR',
+  'TIMEOUT',
+  'INTERNAL_ERROR',
+  'UNKNOWN',
+])
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function retryDelayMs() {
+  return 250 + Math.floor(Math.random() * 500)
+}
+
+export const useAuthStore = defineStore('auth', () => {
+  const accessToken = ref<string | null>(null)
+  const user = ref<User | null>(null)
+  const expiresAt = ref<number | null>(null)
+  const status = ref<AuthStatus>('idle')
+  const suspended = ref(false)
+  const sessionExpired = ref(false)
+
+  let refreshPromise: Promise<boolean> | null = null
+  let bootstrapPromise: Promise<void> | null = null
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+  const isAuthenticated = computed(() => Boolean(accessToken.value && user.value))
+
+  function clearRefreshTimer() {
+    if (refreshTimer !== null) {
+      clearTimeout(refreshTimer)
+      refreshTimer = null
+    }
+  }
+
+  function clearSession() {
+    clearRefreshTimer()
+    accessToken.value = null
+    user.value = null
+    expiresAt.value = null
+  }
+
+  function scheduleRefresh(expiresIn: number) {
+    clearRefreshTimer()
+
+    if (!accessToken.value) {
+      return
+    }
+
+    const delaySeconds = Math.max(5, expiresIn - REFRESH_LEEWAY_SECONDS)
+    refreshTimer = setTimeout(() => {
+      void refresh()
+    }, delaySeconds * 1000)
+  }
+
+  function scheduleRefreshRetry(seconds = REFRESH_RETRY_SECONDS) {
+    clearRefreshTimer()
+
+    if (!accessToken.value) {
+      return
+    }
+
+    refreshTimer = setTimeout(() => {
+      void refresh()
+    }, Math.max(1, seconds) * 1000)
+  }
+
+  function applySession(response: LoginResponse) {
+    accessToken.value = response.access_token
+    user.value = response.user
+    expiresAt.value = Date.now() + response.expires_in * 1000
+    status.value = 'authenticated'
+    suspended.value = false
+    sessionExpired.value = false
+    scheduleRefresh(response.expires_in)
+  }
+
+  function handleRefreshFailure(error: ApiError, hadSession: boolean): boolean {
+    if (error.code === 'ACCOUNT_SUSPENDED') {
+      suspended.value = true
+      clearSession()
+      status.value = 'anonymous'
+      return false
+    }
+
+    if (error.code === 'INVALID_REFRESH_TOKEN' || error.code === 'UNAUTHORIZED') {
+      if (hadSession) {
+        sessionExpired.value = true
+      }
+
+      clearSession()
+      status.value = 'anonymous'
+      return false
+    }
+
+    if (error.code === 'RATE_LIMITED') {
+      if (hadSession) {
+        scheduleRefreshRetry(error.retryAfterSeconds ?? REFRESH_RETRY_SECONDS)
+        status.value = 'authenticated'
+      } else {
+        status.value = 'anonymous'
+      }
+
+      return false
+    }
+
+    if (error.code === 'REFRESH_IN_PROGRESS') {
+      if (hadSession) {
+        scheduleRefreshRetry()
+        status.value = 'authenticated'
+      } else {
+        status.value = 'anonymous'
+      }
+
+      return false
+    }
+
+    if (hadSession && RETRYABLE_REFRESH_CODES.has(error.code)) {
+      scheduleRefreshRetry()
+      status.value = 'authenticated'
+      return false
+    }
+
+    if (!hadSession) {
+      status.value = 'anonymous'
+    }
+
+    return false
+  }
+
+  async function doRefresh(): Promise<boolean> {
+    const hadSession = isAuthenticated.value
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await api.refresh()
+        applySession(response)
+        return true
+      } catch (cause) {
+        const error = asApiError(cause)
+
+        if (error.code === 'REFRESH_IN_PROGRESS' && attempt < 2) {
+          await delay(retryDelayMs())
+          continue
+        }
+
+        return handleRefreshFailure(error, hadSession)
+      }
+    }
+
+    return false
+  }
+
+  function refresh(): Promise<boolean> {
+    if (!refreshPromise) {
+      refreshPromise = doRefresh().finally(() => {
+        refreshPromise = null
+      })
+    }
+
+    return refreshPromise
+  }
+
+  function bootstrap(): Promise<void> {
+    if (status.value !== 'idle') {
+      return Promise.resolve()
+    }
+
+    if (!bootstrapPromise) {
+      bootstrapPromise = refresh()
+        .then(() => {
+          if (status.value === 'idle') {
+            status.value = isAuthenticated.value ? 'authenticated' : 'anonymous'
+          }
+        })
+        .finally(() => {
+          bootstrapPromise = null
+        })
+    }
+
+    return bootstrapPromise
+  }
+
+  async function signIn(email: string, password: string): Promise<User> {
+    status.value = 'loading'
+
+    try {
+      const response = await api.login({ email, password })
+      applySession(response)
+      return response.user
+    } catch (error) {
+      status.value = isAuthenticated.value ? 'authenticated' : 'anonymous'
+      throw error
+    }
+  }
+
+  function register(input: RegisterInput): Promise<User> {
+    return api.register({
+      email: input.email,
+      display_name: input.display_name,
+      password: input.password,
+    })
+  }
+
+  async function signOut(): Promise<void> {
+    clearSession()
+    status.value = 'anonymous'
+    suspended.value = false
+    sessionExpired.value = false
+
+    try {
+      await api.logout()
+    } catch {
+      // The local session is already gone. Logout is idempotent server-side.
+    }
+  }
+
+  return {
+    accessToken,
+    user,
+    expiresAt,
+    status,
+    suspended,
+    sessionExpired,
+    isAuthenticated,
+    bootstrap,
+    refresh,
+    signIn,
+    register,
+    signOut,
+  }
+})
