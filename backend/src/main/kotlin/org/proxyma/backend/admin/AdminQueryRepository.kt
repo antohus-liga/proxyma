@@ -509,8 +509,7 @@ class AdminQueryRepository(
 			return this to null
 		}
 		val page = take(limit)
-		val last = page.last()
-		val cursor = when (last) {
+        val cursor = when (val last = page.last()) {
 			is AdminUserSummary -> AdminCursorCodec.encode(last.createdAt, last.id)
 			is AdminOrgSummary -> AdminCursorCodec.encode(last.createdAt, last.id)
 			is AdminAuditEntry -> AdminCursorCodec.encode(last.timestamp, last.id)
