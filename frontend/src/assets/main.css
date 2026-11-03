@@ -54,3 +54,219 @@ a:hover {
     padding-inline: var(--px-page-padding-sm);
   }
 }
+
+.px-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.px-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--px-font-size-small);
+  line-height: var(--px-line-compact);
+}
+
+.px-table th {
+  padding: 10px var(--px-space-4);
+  border-block-end: var(--px-border-width) solid var(--px-color-border-subtle);
+  color: var(--px-color-text-secondary);
+  font-size: var(--px-font-size-caption);
+  font-weight: var(--px-font-weight-medium);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.px-table td {
+  padding: 12px var(--px-space-4);
+  border-block-end: var(--px-border-width) solid var(--px-color-border-subtle);
+  color: var(--px-color-text-primary);
+  vertical-align: middle;
+}
+
+.px-table tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.px-table tbody tr:hover {
+  background: var(--px-color-surface-subtle);
+}
+
+.px-table__numeric {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.px-table__mono {
+  font-family: var(--px-font-mono);
+  font-size: var(--px-font-size-mono-sm);
+}
+
+.px-table__actions {
+  text-align: end;
+  white-space: nowrap;
+}
+
+.px-table__muted {
+  color: var(--px-color-text-tertiary);
+}
+
+.px-definition-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  gap: var(--px-space-3) var(--px-space-6);
+  margin: 0;
+}
+
+.px-definition-list dt {
+  color: var(--px-color-text-secondary);
+  font-size: var(--px-font-size-small);
+  line-height: var(--px-line-compact);
+}
+
+.px-definition-list dd {
+  margin: 0;
+  color: var(--px-color-text-primary);
+  font-size: var(--px-font-size-small);
+  line-height: var(--px-line-compact);
+  overflow-wrap: anywhere;
+}
+
+.px-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--px-space-6);
+}
+
+.px-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--px-space-3);
+  padding: var(--px-space-4);
+  border: var(--px-border-width) solid var(--px-color-border-subtle);
+  border-radius: var(--px-radius-card);
+  background: var(--px-color-surface);
+}
+
+.px-filter-bar__field {
+  min-width: 160px;
+  flex: 1;
+}
+
+.px-filter-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--px-space-2);
+}
+
+.px-load-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--px-space-3);
+  padding: var(--px-space-3) var(--px-space-4);
+  border-block-start: var(--px-border-width) solid var(--px-color-border-subtle);
+}
+
+.px-load-more__count {
+  color: var(--px-color-text-tertiary);
+  font-size: var(--px-font-size-caption);
+  line-height: var(--px-line-compact);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .px-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .px-table,
+  .px-table tbody,
+  .px-table tr,
+  .px-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .px-table tr {
+    padding: var(--px-space-2) 0;
+    border-block-end: var(--px-border-width) solid var(--px-color-border-subtle);
+  }
+
+  .px-table tr:last-child {
+    border-block-end: 0;
+  }
+
+  .px-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--px-space-4);
+    padding: 6px var(--px-space-4);
+    border: 0;
+    text-align: start;
+  }
+
+  .px-table td::before {
+    flex-shrink: 0;
+    color: var(--px-color-text-secondary);
+    font-size: var(--px-font-size-caption);
+    font-weight: var(--px-font-weight-medium);
+    content: attr(data-label);
+  }
+
+  .px-table td:not([data-label])::before {
+    display: none;
+  }
+
+  .px-table td.px-table__cell--primary {
+    justify-content: flex-start;
+    padding-block-start: var(--px-space-2);
+    font-size: var(--px-font-size-control);
+  }
+
+  .px-table td.px-table__cell--primary::before {
+    display: none;
+  }
+
+  .px-table__numeric,
+  .px-table__actions {
+    text-align: start;
+  }
+
+  .px-definition-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--px-space-1);
+  }
+
+  .px-definition-list dd {
+    margin-block-end: var(--px-space-3);
+  }
+
+  .px-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .px-filter-bar__field {
+    min-width: 0;
+  }
+
+  .px-filter-bar__actions {
+    justify-content: flex-end;
+  }
+}

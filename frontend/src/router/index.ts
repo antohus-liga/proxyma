@@ -7,6 +7,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     titleKey?: string
     requiresAuth?: boolean
+    requiresAdmin?: boolean
     guestOnly?: boolean
   }
 }
@@ -35,8 +36,51 @@ const router = createRouter({
     {
       path: '/app',
       name: 'app',
-      component: () => import('../views/AppPlaceholderView.vue'),
-      meta: { titleKey: 'app.signedIn.meta.title', requiresAuth: true },
+      component: () => import('../views/AccountView.vue'),
+      meta: { titleKey: 'account.meta.title', requiresAuth: true },
+    },
+    {
+      path: '/admin',
+      component: () => import('../views/admin/AdminLayoutView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        {
+          path: '',
+          name: 'admin',
+          component: () => import('../views/admin/AdminOverviewView.vue'),
+          meta: { titleKey: 'admin.overview.meta.title' },
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('../views/admin/AdminUsersView.vue'),
+          meta: { titleKey: 'admin.users.meta.title' },
+        },
+        {
+          path: 'users/:userId',
+          name: 'admin-user-detail',
+          component: () => import('../views/admin/AdminUserDetailView.vue'),
+          meta: { titleKey: 'admin.userDetail.meta.title' },
+        },
+        {
+          path: 'orgs',
+          name: 'admin-orgs',
+          component: () => import('../views/admin/AdminOrgsView.vue'),
+          meta: { titleKey: 'admin.orgs.meta.title' },
+        },
+        {
+          path: 'orgs/:orgId',
+          name: 'admin-org-detail',
+          component: () => import('../views/admin/AdminOrgDetailView.vue'),
+          meta: { titleKey: 'admin.orgDetail.meta.title' },
+        },
+        {
+          path: 'audit',
+          name: 'admin-audit',
+          component: () => import('../views/admin/AdminAuditView.vue'),
+          meta: { titleKey: 'admin.audit.meta.title' },
+        },
+      ],
     },
     {
       path: '/:pathMatch(.*)*',
@@ -67,6 +111,15 @@ router.beforeEach(async (to) => {
     }
 
     return { name: 'sign-in', query }
+  }
+
+  if (to.meta.requiresAdmin && !auth.user?.is_platform_admin) {
+    return {
+      name: 'not-found',
+      params: { pathMatch: to.path.split('/').filter(Boolean) },
+      query: to.query,
+      hash: to.hash,
+    }
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {

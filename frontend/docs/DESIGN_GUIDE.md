@@ -766,8 +766,8 @@ export default {
 │              │                                             │
 │              │ Content                                     │
 │              │                                             │
-│ Admin        │                                             │
 │ Account      │                                             │
+│ Admin        │                                             │
 └──────────────┴─────────────────────────────────────────────┘
    232px
 ```
@@ -775,12 +775,12 @@ export default {
 | Region | Specification |
 |---|---|
 | Sidebar | 232px wide, full height, `--px-color-canvas`, right border `--px-color-border-subtle`, 16px inner padding |
-| Sidebar header | Wordmark at top, 20px high, 16px padding; org switcher below with 8px gap |
+| Sidebar header | Wordmark at top, 20px high, 16px padding; org switcher below with 8px gap. Do not repeat the page-context marker here; the top bar carries it |
 | Navigation item | 36px high, 8px horizontal padding, 6px radius, 16px icon + 10px gap, 14px/500 label |
 | Active navigation | `--px-color-accent-subtle` background, `--px-color-accent` text and icon, 2px left indicator |
 | Hover navigation | `--px-color-surface-subtle` background, primary text |
 | Sidebar footer | Theme control, help link, account menu; separated by a 1px rule |
-| Admin section | Below a 1px rule, visually separated, shield icon, only when `is_platform_admin` is true |
+| Admin section | Below a 1px rule at the bottom, visually separated, shield icon and section label, only when `is_platform_admin` is true |
 | Top bar | 56px high, sticky, `--px-color-canvas`, bottom border, 16–24px horizontal padding |
 | Content | `--px-content-max`, 32px top padding, 48px bottom padding |
 | Page header | Title, one-line description, actions right-aligned on desktop; 24px bottom margin |
@@ -1520,6 +1520,7 @@ Ordered rules that decide where each request goes.
 
 - Keep the page header stable during loading and errors.
 - Move focus to the page `<h1>` after a client-side route change, without scrolling the page.
+- Do not draw a visible focus ring on that heading; it is a focus target for assistive technology, not an interactive control.
 - Use a skip link as the first focusable element: “Skip to main content”.
 - Do not use a top-level “Dashboard” title. Use the specific page name.
 
@@ -1722,9 +1723,9 @@ Admin is a separate platform context, not an organisation role.
 
 **MUST**
 
-- Show a persistent “Platform administration” marker in the top bar or page header.
+- Show a persistent “Platform administration” marker in the top bar or page header. Show it once; do not repeat it in the sidebar header.
 - Use the same tokens and components, but a distinct context label. Do not build a second design system.
-- Keep the admin navigation separate from org navigation, with a “Back to dashboard” link.
+- Keep the admin navigation in its own labelled section at the bottom of the sidebar. The persistent Account link is the way back to account views; do not add a separate “Back to dashboard” link.
 - Admin views are metadata-only: no config contents, no logs, no ban IPs, no org audit. Do not design panels that imply access the API does not grant.
 - All actions must be available on mobile, including risky ones. On small screens, risky actions open a full-screen step-up sheet.
 - Risky actions (suspend, force logout) require the admin's own password and a reason (maximum 500 characters). Use a step-up dialog, not a browser confirm.

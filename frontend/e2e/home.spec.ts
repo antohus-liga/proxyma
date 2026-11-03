@@ -11,6 +11,17 @@ test('serves the public homepage', async ({ page }) => {
   await expect(page.locator('picture img')).toBeVisible()
 })
 
+test('focuses the homepage heading without a visible focus ring', async ({ page }) => {
+  await page.goto('/')
+
+  const heading = page.getByRole('heading', { level: 1 })
+
+  await expect(heading).toBeFocused()
+  await expect
+    .poll(() => heading.evaluate((element) => getComputedStyle(element).boxShadow))
+    .toBe('none')
+})
+
 test('homepage calls to action reach the auth pages', async ({ page }) => {
   await page.route('**/api/v1/auth/refresh', (route) =>
     route.fulfill({

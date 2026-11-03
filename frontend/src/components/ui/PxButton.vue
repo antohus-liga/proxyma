@@ -2,7 +2,7 @@
 import { computed, useAttrs } from 'vue'
 import { RouterLink } from 'vue-router'
 
-type PxButtonVariant = 'primary' | 'secondary' | 'ghost' | 'link'
+type PxButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'link'
 type PxButtonSize = 'sm' | 'md' | 'lg'
 
 defineOptions({ inheritAttrs: false })
@@ -152,6 +152,21 @@ const componentProps = computed(() =>
 
 .px-button--ghost:active {
   background: var(--px-state-active);
+}
+
+.px-button--danger {
+  background: var(--px-color-danger-solid);
+  color: var(--px-color-danger-contrast);
+}
+
+.px-button--danger:hover {
+  background: var(--px-color-danger-fg);
+  color: var(--px-color-danger-contrast);
+  text-decoration: none;
+}
+
+.px-button--danger:active {
+  background: var(--px-color-danger-fg);
 }
 
 .px-button--link {

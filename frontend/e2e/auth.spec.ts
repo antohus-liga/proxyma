@@ -60,9 +60,18 @@ test.describe('sign in', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page).toHaveURL(/\/app$/)
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText("You're signed in")
-    await expect(page.getByText('Ana (ana@example.com)')).toBeVisible()
-    await expect(page.getByText("Organisation onboarding isn't available yet.")).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your account')
+    await expect(page.getByRole('main').getByText('Ana', { exact: true })).toBeVisible()
+    await expect(page.getByRole('main').getByText('ana@example.com')).toBeVisible()
+    await expect(
+      page.getByText("Organisation and proxy features aren't available yet."),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: 'Account' }).getByRole('link', { name: 'Account' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: 'Platform administration' }),
+    ).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Sign out' }).click()
 

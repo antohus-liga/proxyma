@@ -80,6 +80,11 @@ const { t } = useI18n()
   text-wrap: balance;
 }
 
+.hero__title:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 .hero__lead {
   margin-bottom: var(--px-space-3);
   color: var(--px-color-text-secondary);

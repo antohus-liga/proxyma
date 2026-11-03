@@ -15,6 +15,12 @@ const routes = [
   { path: '/sign-in', name: 'sign-in' },
   { path: '/create-account', name: 'create-account' },
   { path: '/app', name: 'app' },
+  { path: '/admin', name: 'admin' },
+  { path: '/admin/users', name: 'admin-users' },
+  { path: '/admin/users/:userId', name: 'admin-user-detail' },
+  { path: '/admin/orgs', name: 'admin-orgs' },
+  { path: '/admin/orgs/:orgId', name: 'admin-org-detail' },
+  { path: '/admin/audit', name: 'admin-audit' },
 ] as const
 
 type TestRouteName = (typeof routes)[number]['name']

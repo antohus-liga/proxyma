@@ -123,6 +123,17 @@ docker build -t proxyma-proxy ./proxy
 ```
 5. Open the dashboard (by default at `http://localhost:5173`), create an organisation, and you're in. The backend will spawn your proxy container from the image you just built.
 
+Platform administration is **off by default**. To use `/admin`, set `PROXYMA_ADMIN_ENABLED=true`
+in `backend/.env`, restart the backend, and grant your account platform-admin access:
+
+```bash
+cd backend
+./gradlew bootRun --args='grant-admin you@example.com'
+```
+
+Optionally restrict the admin API to trusted networks with `PROXYMA_ADMIN_ALLOWED_CIDRS`.
+While disabled, the dashboard treats `/admin` as unavailable and shows the normal not-found page.
+
 ## Tests
 
 Backend tests use a throwaway PostgreSQL container through Testcontainers, so Docker must be

@@ -5,6 +5,7 @@ import {
   asApiError,
   type ApiError,
   type LoginResponse,
+  type RefreshOutcome,
   type RegisterInput,
   type User,
 } from '@/lib/api'
@@ -38,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
   const suspended = ref(false)
   const sessionExpired = ref(false)
 
-  let refreshPromise: Promise<boolean> | null = null
+  let refreshPromise: Promise<RefreshOutcome> | null = null
   let bootstrapPromise: Promise<void> | null = null
   let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -93,12 +94,12 @@ export const useAuthStore = defineStore('auth', () => {
     scheduleRefresh(response.expires_in)
   }
 
-  function handleRefreshFailure(error: ApiError, hadSession: boolean): boolean {
+  function handleRefreshFailure(error: ApiError, hadSession: boolean): RefreshOutcome {
     if (error.code === 'ACCOUNT_SUSPENDED') {
       suspended.value = true
       clearSession()
       status.value = 'anonymous'
-      return false
+      return 'failed'
     }
 
     if (error.code === 'INVALID_REFRESH_TOKEN' || error.code === 'UNAUTHORIZED') {
@@ -108,52 +109,52 @@ export const useAuthStore = defineStore('auth', () => {
 
       clearSession()
       status.value = 'anonymous'
-      return false
+      return 'failed'
     }
 
     if (error.code === 'RATE_LIMITED') {
       if (hadSession) {
         scheduleRefreshRetry(error.retryAfterSeconds ?? REFRESH_RETRY_SECONDS)
         status.value = 'authenticated'
-      } else {
-        status.value = 'anonymous'
+        return 'deferred'
       }
 
-      return false
+      status.value = 'anonymous'
+      return 'failed'
     }
 
     if (error.code === 'REFRESH_IN_PROGRESS') {
       if (hadSession) {
         scheduleRefreshRetry()
         status.value = 'authenticated'
-      } else {
-        status.value = 'anonymous'
+        return 'deferred'
       }
 
-      return false
+      status.value = 'anonymous'
+      return 'failed'
     }
 
     if (hadSession && RETRYABLE_REFRESH_CODES.has(error.code)) {
       scheduleRefreshRetry()
       status.value = 'authenticated'
-      return false
+      return 'deferred'
     }
 
     if (!hadSession) {
       status.value = 'anonymous'
     }
 
-    return false
+    return 'failed'
   }
 
-  async function doRefresh(): Promise<boolean> {
+  async function doRefresh(): Promise<RefreshOutcome> {
     const hadSession = isAuthenticated.value
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const response = await api.refresh()
         applySession(response)
-        return true
+        return 'refreshed'
       } catch (cause) {
         const error = asApiError(cause)
 
@@ -166,10 +167,10 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
-    return false
+    return 'deferred'
   }
 
-  function refresh(): Promise<boolean> {
+  function refresh(): Promise<RefreshOutcome> {
     if (!refreshPromise) {
       refreshPromise = doRefresh().finally(() => {
         refreshPromise = null
@@ -197,6 +198,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     return bootstrapPromise
+  }
+
+  function markSuspended() {
+    suspended.value = true
+    sessionExpired.value = false
+    clearSession()
+    status.value = 'anonymous'
   }
 
   async function signIn(email: string, password: string): Promise<User> {
@@ -243,6 +251,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     bootstrap,
     refresh,
+    markSuspended,
     signIn,
     register,
     signOut,
