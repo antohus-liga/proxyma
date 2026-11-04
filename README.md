@@ -4,6 +4,7 @@
 
 ![Status](https://img.shields.io/badge/status-design%20stage-orange)
 ![CI](https://github.com/antohus-liga/proxyma/actions/workflows/ci.yml/badge.svg)
+![Frontend CI](https://github.com/antohus-liga/proxyma/actions/workflows/frontend.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 **Proxyma is a reverse proxy you don't have to babysit.**

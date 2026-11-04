@@ -43,6 +43,7 @@ proxyma.auth.cookie.secure=false
 
 ```sh
 bun run lint
+bun run lint:check
 bun run type-check
 bun run build
 bun run test:unit
