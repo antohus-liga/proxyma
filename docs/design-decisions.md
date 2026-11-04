@@ -191,7 +191,7 @@ Every decision follows the same short format:
 
 **Alternatives.** A long-lived JWT in `localStorage` is easier but is readable by any script on the page. Server-side sessions would also work, but JWT was a stated project choice.
 
-**Consequences.** Better protection against token theft, immediate role changes, and revocation on logout. The cost is a refresh flow and a ticket mechanism for SSE.
+**Consequences.** Better protection against token theft, immediate role changes, and revocation on logout. Refresh tokens rotate on every use and are capped by an absolute session lifetime, so a copied token cannot be renewed forever, though it remains usable until the legitimate client reuses the old copy or the deadline passes. The cost is a refresh flow and a ticket mechanism for SSE.
 
 ## 16. Owner, co-owner, member, with one owned org per user
 

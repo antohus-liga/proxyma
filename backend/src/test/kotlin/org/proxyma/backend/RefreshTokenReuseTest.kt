@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -48,6 +49,7 @@ class RefreshTokenReuseTest : IntegrationTestBase() {
 				.content("""{"email":"$email","password":"correct horse battery staple"}"""),
 		).andExpect(status().isOk).andReturn()
 		val firstCookie = cookieValue(login.response.getHeader(HttpHeaders.SET_COOKIE)!!)
+		val accessToken = com.jayway.jsonpath.JsonPath.read<String>(login.response.contentAsString, "$.access_token")
 
 		val refreshed = mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, firstCookie)))
 			.andExpect(status().isOk)
@@ -62,6 +64,14 @@ class RefreshTokenReuseTest : IntegrationTestBase() {
 		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, secondCookie)))
 			.andExpect(status().isUnauthorized)
 			.andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+
+		// The account's access tokens are retired at the same time, so the thief
+		// cannot keep using the one it already held.
+		mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken"))
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+
+		org.junit.jupiter.api.Assertions.assertEquals(1, users.findByEmail(email)!!.tokenVersion)
 	}
 
 	private fun cookieValue(setCookie: String): String =

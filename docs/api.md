@@ -97,9 +97,11 @@ Errors: `401` with the same generic message for an unknown email and a wrong pas
 
 ### `POST /auth/refresh`
 
-Needs the refresh cookie and no body. Returns a new access token (same shape as login) and **rotates** the refresh cookie. Expiry slides: each rotation renews the stored token and the cookie for a full refresh TTL.
+Needs the refresh cookie and no body. Returns a new access token (same shape as login) and **rotates** the refresh cookie.
 
-Clients must still de-duplicate refreshes, but a lost race is no longer fatal. A just-rotated token replayed within `proxyma.auth.refresh-reuse-grace` (default 30 s) returns `409 REFRESH_IN_PROGRESS`; the token family is left intact and the cookie is not cleared, so the winner's response remains valid. A replay after that window is treated as theft: the whole family is revoked and the response is `401 INVALID_REFRESH_TOKEN` with a cookie-clearing `Set-Cookie`.
+Expiry has two layers. The token's idle expiry slides: each rotation renews the stored token and the cookie for a full refresh TTL (`proxyma.auth.refresh-token-ttl`, default 7 days). The token family also has an absolute deadline set at login (`proxyma.auth.session-ttl`, default 30 days) that rotation never extends, so the effective expiry is the earlier of the two.
+
+Clients must still de-duplicate refreshes, but a lost race is no longer fatal. A just-rotated token replayed within `proxyma.auth.refresh-reuse-grace` (default 30 s) returns `409 REFRESH_IN_PROGRESS`; the token family is left intact and the cookie is not cleared, so the winner's response remains valid. A replay after that window is treated as theft: the whole family is revoked, the account's `token_version` is bumped so already-issued access tokens are rejected on their next request, and the response is `401 INVALID_REFRESH_TOKEN` with a cookie-clearing `Set-Cookie`.
 
 ### `POST /auth/logout`
 

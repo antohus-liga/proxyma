@@ -15,6 +15,16 @@ type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous'
 
 const REFRESH_LEEWAY_SECONDS = 60
 const REFRESH_RETRY_SECONDS = 10
+
+// A just-rotated token replayed inside the backend's reuse-grace window (30s by
+// default) is treated as a concurrent refresh, not theft. Keep retrying a
+// little longer than that: in the same browser the winner's cookie is shared,
+// so the next attempt succeeds; a stale copy from another client never does and
+// eventually trips reuse detection.
+const REFRESH_CONFLICT_WINDOW_MS = 32_000
+const REFRESH_CONFLICT_INITIAL_DELAY_MS = 500
+const REFRESH_CONFLICT_MAX_DELAY_MS = 8_000
+
 const RETRYABLE_REFRESH_CODES = new Set([
   'NETWORK_ERROR',
   'TIMEOUT',
@@ -26,10 +36,6 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, ms)
   })
-}
-
-function retryDelayMs() {
-  return 250 + Math.floor(Math.random() * 500)
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -152,8 +158,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function doRefresh(): Promise<RefreshOutcome> {
     const hadSession = isAuthenticated.value
+    const conflictStartedAt = Date.now()
+    let conflictDelay = REFRESH_CONFLICT_INITIAL_DELAY_MS
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (;;) {
       try {
         const response = await api.refresh()
         applySession(response)
@@ -161,16 +169,18 @@ export const useAuthStore = defineStore('auth', () => {
       } catch (cause) {
         const error = asApiError(cause)
 
-        if (error.code === 'REFRESH_IN_PROGRESS' && attempt < 2) {
-          await delay(retryDelayMs())
-          continue
+        if (error.code === 'REFRESH_IN_PROGRESS') {
+          const elapsed = Date.now() - conflictStartedAt
+          if (elapsed < REFRESH_CONFLICT_WINDOW_MS) {
+            await delay(Math.min(conflictDelay, REFRESH_CONFLICT_WINDOW_MS - elapsed))
+            conflictDelay = Math.min(conflictDelay * 2, REFRESH_CONFLICT_MAX_DELAY_MS)
+            continue
+          }
         }
 
         return handleRefreshFailure(error, hadSession)
       }
     }
-
-    return 'deferred'
   }
 
   function refresh(): Promise<RefreshOutcome> {

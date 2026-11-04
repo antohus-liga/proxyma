@@ -150,6 +150,34 @@ describe('auth store', () => {
     expect(auth.isAuthenticated).toBe(true)
   })
 
+  it('retries a concurrent refresh during bootstrap instead of signing out', async () => {
+    mockedApi.refresh
+      .mockRejectedValueOnce(authError('REFRESH_IN_PROGRESS'))
+      .mockRejectedValueOnce(authError('REFRESH_IN_PROGRESS'))
+      .mockResolvedValueOnce(loginResponse)
+    const auth = useAuthStore()
+
+    const bootstrapping = auth.bootstrap()
+    await vi.advanceTimersByTimeAsync(2000)
+    await bootstrapping
+
+    expect(mockedApi.refresh).toHaveBeenCalledTimes(3)
+    expect(auth.status).toBe('authenticated')
+    expect(auth.sessionExpired).toBe(false)
+  })
+
+  it('gives up after a persistent refresh conflict without marking the session expired', async () => {
+    mockedApi.refresh.mockRejectedValue(authError('REFRESH_IN_PROGRESS'))
+    const auth = useAuthStore()
+
+    const bootstrapping = auth.bootstrap()
+    await vi.advanceTimersByTimeAsync(45_000)
+    await bootstrapping
+
+    expect(auth.status).toBe('anonymous')
+    expect(auth.sessionExpired).toBe(false)
+  })
+
   it('clears the local session even when logout fails', async () => {
     mockedApi.login.mockResolvedValue(loginResponse)
     mockedApi.logout.mockRejectedValue(authError('NETWORK_ERROR'))

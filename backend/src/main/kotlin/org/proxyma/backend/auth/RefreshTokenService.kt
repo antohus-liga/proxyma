@@ -2,6 +2,7 @@ package org.proxyma.backend.auth
 
 import org.proxyma.backend.common.api.ApiException
 import org.proxyma.backend.config.ProxymaProperties
+import org.proxyma.backend.user.UserRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,6 +18,7 @@ import java.util.UUID
 @Service
 class RefreshTokenService(
 	private val repository: RefreshTokenRepository,
+	private val users: UserRepository,
 	private val properties: ProxymaProperties,
 	private val clock: Clock,
 ) {
@@ -36,7 +38,8 @@ class RefreshTokenService(
 		ip: InetAddress? = null,
 	): IssuedRefresh {
 		val now = clock.instant()
-		val expiresAt = familyExpiresAt ?: now.plus(properties.auth.refreshTokenTtl)
+		val familyDeadline = familyExpiresAt ?: now.plus(properties.auth.sessionTtl)
+		val expiresAt = minOf(now.plus(properties.auth.refreshTokenTtl), familyDeadline)
 		val raw = randomToken()
 		repository.save(
 			RefreshToken(
@@ -46,6 +49,7 @@ class RefreshTokenService(
 				userAgent = userAgent?.take(512),
 				ip = ip,
 				expiresAt = expiresAt,
+				familyExpiresAt = familyDeadline,
 			),
 		)
 		return IssuedRefresh(raw, expiresAt)
@@ -53,7 +57,8 @@ class RefreshTokenService(
 
 	/**
 	 * Rotates a refresh token. Presenting an already-revoked token is treated as
-	 * theft: the whole family is revoked.
+	 * theft: the whole family is revoked and the account's access tokens are
+	 * retired immediately.
 	 *
 	 * The exception is a token that was rotated moments ago. Two concurrent
 	 * refresh requests from the same client would otherwise trip reuse detection
@@ -61,6 +66,9 @@ class RefreshTokenService(
 	 * `refresh-reuse-grace` window fails with [REFRESH_IN_PROGRESS] and leaves
 	 * the family intact. The loser of the race still gets no token; the winner's
 	 * rotation stands.
+	 *
+	 * Rotation never extends the family's absolute [RefreshToken.familyExpiresAt]
+	 * deadline, even though the token itself uses sliding expiry.
 	 */
 	// Reuse detection must survive the exception that rejects the request: the
 	// family revocation is the whole point, so do not roll it back.
@@ -74,14 +82,23 @@ class RefreshTokenService(
 			if (wasJustRotated(token, now)) {
 				throw refreshInProgress()
 			}
-			repository.revokeFamily(token.familyId, now)
+			val retired = repository.revokeFamily(token.familyId, now)
+			// A rotated token that comes back is the theft signal. Retire live
+			// access tokens too, otherwise the thief could keep using its
+			// current one until it naturally expires. Skip the bump when the
+			// family was already dead, so replaying an old logged-out cookie
+			// cannot keep retiring valid tokens.
+			if (token.replacedByTokenId != null && retired > 0) {
+				users.bumpTokenVersion(token.userId)
+			}
 			throw invalid()
 		}
-		if (!token.expiresAt.isAfter(now)) {
+		if (!token.expiresAt.isAfter(now) || !token.familyExpiresAt.isAfter(now)) {
 			repository.revokeFamily(token.familyId, now)
 			throw invalid()
 		}
 
+		val expiresAt = minOf(now.plus(properties.auth.refreshTokenTtl), token.familyExpiresAt)
 		val rawReplacement = randomToken()
 		val replacement = RefreshToken(
 			userId = token.userId,
@@ -89,8 +106,10 @@ class RefreshTokenService(
 			familyId = token.familyId,
 			userAgent = userAgent?.take(512),
 			ip = ip,
-			// Sliding expiry: every rotation renews the token for a full TTL.
-			expiresAt = now.plus(properties.auth.refreshTokenTtl),
+			// Sliding expiry: every rotation renews the token for a full TTL,
+			// but never past the family's absolute deadline.
+			expiresAt = expiresAt,
+			familyExpiresAt = token.familyExpiresAt,
 		)
 		repository.save(replacement)
 

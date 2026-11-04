@@ -19,6 +19,12 @@ data class AuthProperties(
 	val accessTokenTtl: Duration = Duration.ofMinutes(15),
 	val adminAccessTokenTtl: Duration = Duration.ofMinutes(5),
 	val refreshTokenTtl: Duration = Duration.ofDays(7),
+	/**
+	 * Absolute lifetime of a refresh-token family. Sliding expiry renews the
+	 * token on every rotation, but this deadline is set once at login and never
+	 * moves, so a session (or a stolen copy of it) cannot be renewed forever.
+	 */
+	val sessionTtl: Duration = Duration.ofDays(30),
 	/** How long a just-rotated refresh token is treated as a race, not theft. */
 	val refreshReuseGrace: Duration = Duration.ofSeconds(30),
 	val cookie: CookieProperties = CookieProperties(),

@@ -183,6 +183,51 @@ class AuthIntegrationTest : IntegrationTestBase() {
 	}
 
 	@Test
+	fun `refresh expiry is capped by the absolute session deadline`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val userId = users.findByEmail(email)!!.id
+
+		val token = refreshTokens.findAll().single { it.userId == userId }
+		val deadline = java.time.Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+		token.familyExpiresAt = deadline
+		refreshTokens.save(token)
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, refreshCookie(login))))
+			.andExpect(status().isOk)
+
+		val replacement = refreshTokens.findAll()
+			.single { it.userId == userId && it.revokedAt == null }
+		// The refresh TTL is seven days, but the family deadline is one hour
+		// away, so both the replacement and its cookie must stop there.
+		org.junit.jupiter.api.Assertions.assertEquals(deadline.toEpochMilli(), replacement.familyExpiresAt.toEpochMilli())
+		org.junit.jupiter.api.Assertions.assertEquals(deadline.toEpochMilli(), replacement.expiresAt.toEpochMilli())
+	}
+
+	@Test
+	fun `refresh is rejected after the absolute session deadline`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val userId = users.findByEmail(email)!!.id
+
+		val token = refreshTokens.findAll().single { it.userId == userId }
+		token.familyExpiresAt = java.time.Instant.now().minusSeconds(1)
+		token.expiresAt = java.time.Instant.now().plusSeconds(3600)
+		refreshTokens.save(token)
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, refreshCookie(login))))
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+
+		org.junit.jupiter.api.Assertions.assertTrue(
+			refreshTokens.findAll().filter { it.userId == userId }.all { it.revokedAt != null },
+			"an expired family should be revoked as a whole",
+		)
+	}
+
+	@Test
 	fun `logout revokes the refresh token`() {
 		val email = uniqueEmail()
 		register(email)

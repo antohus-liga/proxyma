@@ -43,6 +43,14 @@ class RefreshToken(
 	@Column(name = "expires_at", nullable = false)
 	var expiresAt: Instant,
 
+	/**
+	 * Absolute deadline for the whole token family. Set when the family is
+	 * created and copied unchanged by every rotation, so sliding expiry can
+	 * never extend a session indefinitely.
+	 */
+	@Column(name = "family_expires_at", nullable = false)
+	var familyExpiresAt: Instant,
+
 	@Column(name = "revoked_at")
 	var revokedAt: Instant? = null,
 )

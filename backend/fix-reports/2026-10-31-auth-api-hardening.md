@@ -21,7 +21,7 @@ the evidence for each finding.
 | F4 | MVC, security-filter and CORS errors used three different documents | One `ApiProblem` factory builds every body; CORS rejections are now `403 CORS_REJECTED` problem+json |
 | F5 | `Retry-After` only appeared on `429` | Every rate-limited response carries `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; `429` keeps `Retry-After` |
 | F7 | Access tokens survived password changes and admin revocation | Tokens carry a `tv` (token version) claim checked on every request; credential/state changes bump `users.token_version` |
-| F8 | Refresh expiry was absolute at login time | Each rotation sets the stored expiry **and** the cookie to `now + refresh TTL` (pure sliding, no cap) |
+| F8 | Refresh expiry was absolute at login time | Each rotation sets the stored expiry **and** the cookie to `now + refresh TTL` (pure sliding; an absolute cap was added on 2026-11-04) |
 
 Documentation-only findings:
 
@@ -141,6 +141,11 @@ did not move either.
 - `rotate` returns the replacement's expiry, so the cookie `Max-Age`/`Expires` slides with the
   stored token.
 - There is no absolute cap; this is pure sliding expiry as requested.
+
+> **Superseded 2026-11-04:** an absolute family deadline was added after a
+> refresh-token copy test. Rotation now stops at `proxyma.auth.session-ttl`
+> (default 30 days); see
+> [`2026-11-04-refresh-token-theft-hardening.md`](./2026-11-04-refresh-token-theft-hardening.md).
 
 **Files:** `auth/RefreshTokenService.kt`.
 
