@@ -49,6 +49,32 @@ bun run test:unit
 bun run test:e2e
 ```
 
+### WebKit on Fedora
+
+Playwright's WebKit bundle is built for Ubuntu 24.04 and needs older shared
+libraries than Fedora ships (`libicu*.so.74`, `libjpeg.so.8`, `libjxl.so.0.8`,
+`libbacktrace.so.0`). Installing Fedora's packages does not help, and symlinking
+the newer libraries is unsafe because their ABIs differ. Run WebKit through the
+official Playwright container instead:
+
+```sh
+bun run test:e2e:webkit
+```
+
+The script builds the app, then runs `playwright test --project=webkit` inside
+`mcr.microsoft.com/playwright:v<installed-version>-noble` using Podman or Docker.
+It reuses the local `node_modules`, so only the image needs pulling on first use.
+Set `SKIP_BUILD=1` to skip the rebuild when `dist/` is already current
+(`SKIP_BUILD=1 bun run test:e2e:webkit`), and pass extra Playwright arguments
+after the script name, for example
+`bun run test:e2e:webkit --grep account`.
+
+Chromium and Firefox still run natively:
+
+```sh
+bunx playwright test --project=chromium --project=firefox
+```
+
 ## Structure
 
 ```text

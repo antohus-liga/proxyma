@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test:unit": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:webkit": "bash scripts/e2e-webkit.sh",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "run-s \"lint:*\"",
