@@ -16,7 +16,7 @@ defineEmits<{
 }>()
 
 function isActive(item: AppNavItem): boolean {
-  if (item.to === '/admin' || item.to === '/app') {
+  if (item.to === '/admin') {
     return route.path === item.to
   }
 

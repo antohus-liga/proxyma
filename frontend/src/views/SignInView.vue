@@ -39,6 +39,7 @@ const {
 const sessionExpired = computed(
   () => route.query.reason === 'session-expired' || auth.sessionExpired,
 )
+const passwordChanged = computed(() => route.query.reason === 'password-changed')
 const redirectTarget = computed(() => safeRedirect(route.query.redirect))
 const createAccountPath = computed(() =>
   buildAuthPath('/create-account', { redirect: redirectTarget.value }),
@@ -174,6 +175,10 @@ async function onSubmit() {
     :title="t('auth.signIn.title')"
     :description="t('auth.signIn.description')"
   >
+    <div v-if="passwordChanged && !suspended" class="auth-form__notice">
+      <AuthNotice tone="success">{{ t('auth.signIn.passwordChanged') }}</AuthNotice>
+    </div>
+
     <div v-if="sessionExpired && !suspended" class="auth-form__notice">
       <AuthNotice tone="info">{{ t('auth.signIn.sessionExpired') }}</AuthNotice>
     </div>

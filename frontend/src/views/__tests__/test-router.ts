@@ -15,6 +15,7 @@ const routes = [
   { path: '/sign-in', name: 'sign-in' },
   { path: '/create-account', name: 'create-account' },
   { path: '/app', name: 'app' },
+  { path: '/app/password', name: 'account-password' },
   { path: '/admin', name: 'admin' },
   { path: '/admin/users', name: 'admin-users' },
   { path: '/admin/users/:userId', name: 'admin-user-detail' },

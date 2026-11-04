@@ -1,6 +1,11 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, ApiError, type LoginResponse } from '@/lib/api'
+import { api, ApiError, type LoginResponse, type User } from '@/lib/api'
+import {
+  accountApi,
+  type ChangePasswordInput,
+  type UpdateProfileInput,
+} from '@/lib/account-api'
 import { useAuthStore } from '@/stores/auth'
 
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -17,7 +22,15 @@ vi.mock('@/lib/api', async (importOriginal) => {
   }
 })
 
+vi.mock('@/lib/account-api', () => ({
+  accountApi: {
+    updateProfile: vi.fn<(input: UpdateProfileInput) => Promise<User>>(),
+    changePassword: vi.fn<(input: ChangePasswordInput) => Promise<void>>(),
+  },
+}))
+
 const mockedApi = vi.mocked(api)
+const mockedAccountApi = vi.mocked(accountApi)
 
 const loginResponse: LoginResponse = {
   access_token: 'access-token',
@@ -148,5 +161,51 @@ describe('auth store', () => {
     expect(auth.accessToken).toBeNull()
     expect(auth.user).toBeNull()
     expect(auth.status).toBe('anonymous')
+  })
+
+  it('updates the profile and replaces the stored user', async () => {
+    mockedApi.login.mockResolvedValue(loginResponse)
+    const auth = useAuthStore()
+    await auth.signIn('ana@example.com', 'correct horse battery staple')
+
+    const updated: User = {
+      ...loginResponse.user,
+      display_name: 'Ana Smith',
+    }
+    mockedAccountApi.updateProfile.mockResolvedValue(updated)
+
+    await auth.updateProfile(' Ana Smith ')
+
+    expect(mockedAccountApi.updateProfile).toHaveBeenCalledWith({ display_name: 'Ana Smith' })
+    expect(auth.user).toEqual(updated)
+  })
+
+  it('clears the local session after a password change', async () => {
+    mockedApi.login.mockResolvedValue(loginResponse)
+    mockedApi.logout.mockResolvedValue(undefined)
+    const auth = useAuthStore()
+    await auth.signIn('ana@example.com', 'correct horse battery staple')
+
+    mockedAccountApi.changePassword.mockResolvedValue(undefined)
+
+    await auth.changePassword('old-password', 'new-password-123')
+
+    expect(mockedAccountApi.changePassword).toHaveBeenCalledWith({
+      current_password: 'old-password',
+      new_password: 'new-password-123',
+    })
+    expect(auth.accessToken).toBeNull()
+    expect(auth.user).toBeNull()
+    expect(auth.status).toBe('anonymous')
+    expect(auth.passwordChanged).toBe(true)
+  })
+
+  it('resets the password-changed flag on sign-in', async () => {
+    mockedApi.login.mockResolvedValue(loginResponse)
+    const auth = useAuthStore()
+
+    await auth.signIn('ana@example.com', 'correct horse battery staple')
+
+    expect(auth.passwordChanged).toBe(false)
   })
 })

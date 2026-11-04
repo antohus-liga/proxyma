@@ -61,11 +61,13 @@ test.describe('sign in', () => {
 
     await expect(page).toHaveURL(/\/app$/)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your account')
-    await expect(page.getByRole('main').getByText('Ana', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Display name')).toHaveValue('Ana')
     await expect(page.getByRole('main').getByText('ana@example.com')).toBeVisible()
     await expect(
-      page.getByText("Organisation and proxy features aren't available yet."),
-    ).toBeVisible()
+      page
+        .getByRole('navigation', { name: 'Account settings' })
+        .getByRole('link', { name: 'Profile' }),
+    ).toHaveAttribute('aria-current', 'page')
     await expect(
       page.getByRole('navigation', { name: 'Account' }).getByRole('link', { name: 'Account' }),
     ).toBeVisible()

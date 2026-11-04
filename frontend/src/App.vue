@@ -22,6 +22,9 @@ watch(
       query.reason = 'suspended'
     } else if (auth.sessionExpired) {
       query.reason = 'session-expired'
+    } else if (auth.passwordChanged) {
+      // The password view navigates with its own reason and preserved email.
+      return
     }
 
     void router.replace({ name: 'sign-in', query })

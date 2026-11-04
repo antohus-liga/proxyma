@@ -79,7 +79,7 @@ Before a UI change is considered done:
 
 ### 1.5 Current repository reality
 
-At the time of writing, the frontend is still the Vue scaffold. There are no Proxyma components, no design tokens beyond the scaffold's `--vt-c-*` variables, and no product routes. This guide therefore describes the **target** system, not an existing one. Proposed files and components are labelled as proposed. The Vue welcome page, Vue logo, Vue favicon, and scaffold green are disposable.
+At the time of writing, the frontend implements the design tokens and primitives, the public homepage, authentication, the application shell, account profile and password settings, and platform administration. Organisation and proxy surfaces are still planned. This guide therefore describes both the implemented system and the target for surfaces that do not exist yet; status notes in section 9 mark what is live. Accidental drift in the codebase does not override this guide.
 
 ---
 
@@ -795,6 +795,8 @@ export default {
 6. Audit
 7. Settings
 8. Admin (separate section, bottom, platform admins only)
+
+Until organisation and proxy surfaces exist, the account sidebar shows only **Account**, with Profile and Password as sections inside that area. Do not add a separate top-level Settings item for account-only settings. Add Settings as a top-level item only when it owns broader organisation settings.
 
 **Icons:** `LayoutDashboard`, `Route`, `Activity`, `ShieldBan`, `Users`, `ScrollText`, `Settings`, `ShieldCheck`.
 
@@ -1702,10 +1704,12 @@ Use tabs or a secondary sidebar inside the Routes area:
 
 ### 9.10 Settings
 
+**Placement:** until organisation settings exist, account settings live under **Account** with Profile at `/app` and Password at `/app/password`. The Account sidebar item stays active for both routes. Use section navigation inside the Account area rather than adding a competing top-level Settings item.
+
 **Sections**
 
-- Profile: display name, email (read-only if email changes are not supported), save.
-- Password: current password, new password, confirm. A successful change invalidates other sessions and forces a new sign-in; explain this before saving.
+- Profile: display name, save. Show the email as static text in the form; never as a disabled or read-only input. Only the display name is editable while `PATCH /users/me` accepts no other field.
+- Password: current password, new password, confirm. A successful change invalidates every session and forces a new sign-in; explain this before saving.
 - Organisation: name, proxy URL, timezone display preference if added, danger zone for deletion.
 - Appearance: System / Light / Dark.
 - Language: only when more than one locale is registered.
@@ -1713,7 +1717,8 @@ Use tabs or a secondary sidebar inside the Routes area:
 **MUST**
 
 - Password fields use `current-password` and `new-password` autocomplete.
-- The password change confirmation says: “Your other sessions will be signed out. You'll need to sign in again.”
+- The password change warning says: “Changing your password signs you out of every device, including this one. Sign in again with your new password.” Explain this before saving; do not add a second confirmation dialog.
+- After a successful password change, clear the local session and return to sign-in with a “Password changed” notice and the email prefilled.
 - Deleting an organisation requires typing its name and explains the consequences. The owner is the only role that can delete.
 - The danger zone is visually separated by a 1px danger border and 32px top margin, not by a red background.
 

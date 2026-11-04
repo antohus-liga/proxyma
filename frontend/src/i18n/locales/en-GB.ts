@@ -40,17 +40,68 @@ export default {
       title: 'Your account — Proxyma',
     },
     title: 'Your account',
-    description: 'Your Proxyma account details and platform access.',
-    notice:
-      "Organisation and proxy features aren't available yet. Your account is ready for when they arrive.",
-    summary: {
-      title: 'Account details',
-      description: 'The identity Proxyma uses for your sign-in.',
-      displayName: 'Display name',
-      email: 'Email',
-      type: 'Account type',
-      admin: 'Platform administrator',
-      standard: 'Standard account',
+    description: 'Manage your profile and sign-in credentials.',
+    sections: {
+      label: 'Account settings',
+      profile: 'Profile',
+      password: 'Password',
+    },
+    profile: {
+      title: 'Profile',
+      description: 'The name Proxyma shows for you across the dashboard.',
+      displayName: {
+        label: 'Display name',
+        help: 'Use between 1 and 80 characters.',
+      },
+      email: {
+        label: 'Email',
+        help: 'Contact the platform operator to change the email on your account.',
+      },
+      type: {
+        label: 'Account type',
+        admin: 'Platform administrator',
+        standard: 'Standard account',
+      },
+      save: 'Save changes',
+      success: 'Your profile has been updated.',
+      fieldErrors: {
+        required: 'Enter a display name.',
+        tooLong: 'Use 80 characters or fewer.',
+        invalid: 'Enter a display name of 80 characters or fewer.',
+      },
+    },
+    password: {
+      meta: {
+        title: 'Password — Proxyma',
+      },
+      title: 'Password',
+      description: 'Change the password you use to sign in to Proxyma.',
+      warning: {
+        title: 'You will be signed out',
+        description:
+          'Changing your password signs you out of every device, including this one. Sign in again with your new password.',
+      },
+      currentPassword: {
+        label: 'Current password',
+      },
+      newPassword: {
+        label: 'New password',
+        help: 'Use at least 10 characters. Avoid common passwords.',
+      },
+      confirmPassword: {
+        label: 'Confirm new password',
+      },
+      submit: 'Change password',
+      fieldErrors: {
+        currentRequired: 'Enter your current password.',
+        currentInvalid: 'Enter your current password.',
+        newRequired: 'Enter a new password.',
+        newInvalid: 'Use a new password between 10 and 128 characters.',
+        tooShort: 'Use at least 10 characters.',
+        tooLong: 'Use 128 characters or fewer.',
+        confirmRequired: 'Confirm your new password.',
+        mismatch: 'The passwords do not match.',
+      },
     },
     admin: {
       title: 'Platform administration',
@@ -120,6 +171,7 @@ export default {
       newHere: 'New to Proxyma?',
       createAccountLink: 'Create an account',
       sessionExpired: 'Your session has ended. Sign in again.',
+      passwordChanged: 'Password changed. Sign in with your new password.',
     },
     createAccount: {
       meta: {

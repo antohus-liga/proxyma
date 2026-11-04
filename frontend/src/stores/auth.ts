@@ -9,6 +9,7 @@ import {
   type RegisterInput,
   type User,
 } from '@/lib/api'
+import { accountApi } from '@/lib/account-api'
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous'
 
@@ -38,6 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
   const status = ref<AuthStatus>('idle')
   const suspended = ref(false)
   const sessionExpired = ref(false)
+  const passwordChanged = ref(false)
 
   let refreshPromise: Promise<RefreshOutcome> | null = null
   let bootstrapPromise: Promise<void> | null = null
@@ -91,6 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
     status.value = 'authenticated'
     suspended.value = false
     sessionExpired.value = false
+    passwordChanged.value = false
     scheduleRefresh(response.expires_in)
   }
 
@@ -203,6 +206,7 @@ export const useAuthStore = defineStore('auth', () => {
   function markSuspended() {
     suspended.value = true
     sessionExpired.value = false
+    passwordChanged.value = false
     clearSession()
     status.value = 'anonymous'
   }
@@ -228,11 +232,35 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
+  async function updateProfile(displayName: string): Promise<User> {
+    const updated = await accountApi.updateProfile({ display_name: displayName.trim() })
+    user.value = updated
+    return updated
+  }
+
+  async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await accountApi.changePassword({
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+
+    clearSession()
+    status.value = 'anonymous'
+    suspended.value = false
+    sessionExpired.value = false
+    passwordChanged.value = true
+
+    // The password change already revoked the refresh token server-side. Clear
+    // the stale cookie in the background so a reload does not try to use it.
+    void api.logout().catch(() => {})
+  }
+
   async function signOut(): Promise<void> {
     clearSession()
     status.value = 'anonymous'
     suspended.value = false
     sessionExpired.value = false
+    passwordChanged.value = false
 
     try {
       await api.logout()
@@ -248,12 +276,15 @@ export const useAuthStore = defineStore('auth', () => {
     status,
     suspended,
     sessionExpired,
+    passwordChanged,
     isAuthenticated,
     bootstrap,
     refresh,
     markSuspended,
     signIn,
     register,
+    updateProfile,
+    changePassword,
     signOut,
   }
 })

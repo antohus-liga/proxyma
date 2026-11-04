@@ -35,9 +35,22 @@ const router = createRouter({
     },
     {
       path: '/app',
-      name: 'app',
-      component: () => import('../views/AccountView.vue'),
-      meta: { titleKey: 'account.meta.title', requiresAuth: true },
+      component: () => import('../views/account/AccountLayoutView.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'app',
+          component: () => import('../views/account/AccountProfileView.vue'),
+          meta: { titleKey: 'account.meta.title' },
+        },
+        {
+          path: 'password',
+          name: 'account-password',
+          component: () => import('../views/account/AccountPasswordView.vue'),
+          meta: { titleKey: 'account.password.meta.title' },
+        },
+      ],
     },
     {
       path: '/admin',

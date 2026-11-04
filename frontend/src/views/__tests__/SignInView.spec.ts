@@ -102,6 +102,17 @@ describe('SignInView', () => {
     expect(wrapper.text()).toContain('Your session has ended. Sign in again.')
   })
 
+  it('shows the password-changed notice and keeps the email', async () => {
+    const { wrapper } = await mountSignIn(
+      '/sign-in?reason=password-changed&email=ana%40example.com',
+    )
+
+    expect(wrapper.text()).toContain('Password changed. Sign in with your new password.')
+    expect((wrapper.get('#sign-in-email').element as HTMLInputElement).value).toBe(
+      'ana@example.com',
+    )
+  })
+
   it('submits credentials and navigates to the app placeholder', async () => {
     mockedApi.login.mockResolvedValue(loginResponse)
     const { wrapper, router } = await mountSignIn()
