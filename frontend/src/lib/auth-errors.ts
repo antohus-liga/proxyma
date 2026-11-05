@@ -56,7 +56,7 @@ export function mapAuthError(error: ApiError): AuthErrorMap {
     return result
   }
 
-  if (error.retryAfterSeconds !== null) {
+  if (error.code === 'RATE_LIMITED' && error.retryAfterSeconds !== null) {
     result.retryAfterSeconds = error.retryAfterSeconds
   }
 

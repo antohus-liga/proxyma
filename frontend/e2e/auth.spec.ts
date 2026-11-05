@@ -86,6 +86,7 @@ test.describe('sign in', () => {
     await page.route('**/api/v1/auth/login', (route) =>
       route.fulfill({
         status: 401,
+        headers: { 'ratelimit-reset': '30' },
         contentType: 'application/problem+json',
         body: JSON.stringify(problem('INVALID_CREDENTIALS', 401)),
       }),
@@ -99,6 +100,7 @@ test.describe('sign in', () => {
     await expect(page.getByText('Email or password is incorrect.')).toBeVisible()
     await expect(page.getByLabel('Email')).toHaveValue('ana@example.com')
     await expect(page.getByLabel(/^Password/)).toHaveValue('')
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled()
   })
 
   test('disables submission while rate limited', async ({ page }) => {
@@ -186,6 +188,27 @@ test.describe('create account', () => {
 
     await expect(page).toHaveURL(/\/sign-in\?email=ana%40example\.com$/)
     await expect(page.getByLabel('Email')).toHaveValue('ana@example.com')
+  })
+
+  test('keeps the form enabled after a server-side validation error', async ({ page }) => {
+    await mockAnonymousRefresh(page)
+    await page.route('**/api/v1/auth/register', (route) =>
+      route.fulfill({
+        status: 422,
+        headers: { 'ratelimit-reset': '30' },
+        contentType: 'application/problem+json',
+        body: JSON.stringify(problem('WEAK_PASSWORD', 422)),
+      }),
+    )
+
+    await page.goto('/create-account')
+    await page.getByLabel('Display name').fill('Ana')
+    await page.getByLabel('Email').fill('ana@example.com')
+    await page.getByLabel(/^Password/).fill('correct horse battery staple')
+    await page.getByRole('button', { name: 'Create account' }).click()
+
+    await expect(page.getByText('Choose a stronger password.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled()
   })
 
   test('validates password length before submitting', async ({ page }) => {

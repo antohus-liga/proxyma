@@ -84,6 +84,19 @@ describe('mapAuthError', () => {
     expect(mapped.retryAfterSeconds).toBe(42)
   })
 
+  it('ignores retry-after on errors that are not rate limits', () => {
+    const mapped = mapAuthError(
+      new ApiError({
+        code: 'INVALID_CREDENTIALS',
+        problem: problem('INVALID_CREDENTIALS'),
+        retryAfterSeconds: 60,
+      }),
+    )
+
+    expect(mapped.formError).toBe('errors.INVALID_CREDENTIALS')
+    expect(mapped.retryAfterSeconds).toBeUndefined()
+  })
+
   it('marks a suspended account', () => {
     const mapped = mapAuthError(
       new ApiError({ code: 'ACCOUNT_SUSPENDED', problem: problem('ACCOUNT_SUSPENDED') }),

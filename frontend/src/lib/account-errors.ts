@@ -69,6 +69,8 @@ export function mapPasswordError(error: ApiError): PasswordErrorMap {
   return {
     fieldErrors: {},
     formError: errorMessageKey(error),
-    ...(error.retryAfterSeconds === null ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
+    ...(error.code === 'RATE_LIMITED' && error.retryAfterSeconds !== null
+      ? { retryAfterSeconds: error.retryAfterSeconds }
+      : {}),
   }
 }

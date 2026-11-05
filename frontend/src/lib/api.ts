@@ -105,7 +105,13 @@ async function readProblem(response: Response): Promise<ApiProblem | null> {
 }
 
 function readRetryAfter(response: Response): number | null {
-  const header = response.headers.get('retry-after') ?? response.headers.get('ratelimit-reset')
+  // `RateLimit-Reset` is a budget header sent on every auth response. Only a
+  // `Retry-After` on a 429 tells the client it must wait before trying again.
+  if (response.status !== 429) {
+    return null
+  }
+
+  const header = response.headers.get('retry-after')
 
   if (!header) {
     return null

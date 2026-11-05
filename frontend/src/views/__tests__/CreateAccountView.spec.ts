@@ -158,6 +158,23 @@ describe('CreateAccountView', () => {
     expect(wrapper.find('form').exists()).toBe(true)
   })
 
+  it('keeps submission enabled after a server-side validation error', async () => {
+    mockedApi.register.mockRejectedValue(
+      new ApiError({
+        code: 'WEAK_PASSWORD',
+        problem: problem('WEAK_PASSWORD'),
+        retryAfterSeconds: 60,
+      }),
+    )
+    const { wrapper } = await mountCreateAccount()
+
+    await fillValidForm(wrapper)
+    await submit(wrapper)
+
+    expect(wrapper.text()).toContain('Choose a stronger password.')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+  })
+
   it('validates required fields and password length before calling the API', async () => {
     const { wrapper } = await mountCreateAccount()
 

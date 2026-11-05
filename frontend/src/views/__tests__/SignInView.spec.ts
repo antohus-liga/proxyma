@@ -148,6 +148,24 @@ describe('SignInView', () => {
     expect((wrapper.get('#sign-in-password').element as HTMLInputElement).value).toBe('')
   })
 
+  it('keeps submission enabled after a server-side validation error', async () => {
+    mockedApi.login.mockRejectedValue(
+      new ApiError({
+        code: 'INVALID_CREDENTIALS',
+        problem: problem('INVALID_CREDENTIALS'),
+        retryAfterSeconds: 60,
+      }),
+    )
+    const { wrapper } = await mountSignIn()
+
+    await wrapper.get('#sign-in-email').setValue('ana@example.com')
+    await wrapper.get('#sign-in-password').setValue('wrong password')
+    await submit(wrapper)
+
+    expect(wrapper.text()).toContain('Email or password is incorrect.')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+  })
+
   it('replaces the form when the account is suspended', async () => {
     mockedApi.login.mockRejectedValue(
       new ApiError({
