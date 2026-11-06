@@ -1,12 +1,5 @@
 import type { Component } from 'vue'
-import {
-  Building2,
-  LayoutDashboard,
-  ScrollText,
-  ShieldCheck,
-  UserRound,
-  Users,
-} from '@lucide/vue'
+import { Building2, LayoutDashboard, ScrollText, Settings, ShieldCheck, Users } from '@lucide/vue'
 
 export type AppNavItem = {
   labelKey: string
@@ -14,11 +7,13 @@ export type AppNavItem = {
   icon: Component
 }
 
-export const accountNavItems: AppNavItem[] = [
+export const appNavItems: AppNavItem[] = []
+
+export const settingsNavItems: AppNavItem[] = [
   {
-    labelKey: 'nav.account',
-    to: '/app',
-    icon: UserRound,
+    labelKey: 'nav.settings',
+    to: '/settings',
+    icon: Settings,
   },
 ]
 

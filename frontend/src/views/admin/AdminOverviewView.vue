@@ -58,8 +58,8 @@ onMounted(load)
 
   <NotFoundContent
     v-if="notFound"
-    back-to="/app"
-    :back-label="t('nav.backToDashboard')"
+    back-to="/settings/account"
+    :back-label="t('nav.backToSettings')"
   />
 
   <AdminErrorState v-else-if="error" :error="error" @retry="load" />

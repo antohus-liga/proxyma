@@ -139,7 +139,7 @@ async function onSubmit() {
 
   try {
     await auth.signIn(form.email.trim(), form.password)
-    await router.replace(redirectTarget.value ?? '/app')
+    await router.replace(redirectTarget.value ?? '/settings/account')
   } catch (cause) {
     const mapped = mapAuthError(asApiError(cause))
 

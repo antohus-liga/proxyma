@@ -197,7 +197,7 @@ async function clearFilters() {
     </template>
   </PxPageHeader>
 
-  <NotFoundContent v-if="notFound" back-to="/app" :back-label="t('nav.backToDashboard')" />
+  <NotFoundContent v-if="notFound" back-to="/settings/account" :back-label="t('nav.backToSettings')" />
 
   <AdminErrorState v-else-if="error" :error="error" @retry="load()" />
 

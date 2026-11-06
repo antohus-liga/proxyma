@@ -159,9 +159,9 @@ test.describe('platform administration', () => {
     )
     await expect(navigation.getByRole('link', { name: 'Users' })).toBeVisible()
     await expect(
-      page.getByRole('navigation', { name: 'Account' }).getByRole('link', { name: 'Account' }),
+      page.locator('.app-sidebar').getByRole('link', { name: 'Settings' }),
     ).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Back to dashboard' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Back to settings' })).toHaveCount(0)
     await expect(page.getByText('Platform administration').first()).toBeVisible()
   })
 
@@ -170,10 +170,9 @@ test.describe('platform administration', () => {
     await mockOverview(page)
     await page.goto('/admin')
 
-    const usersLink = page.getByRole('navigation', { name: 'Platform administration' }).getByRole(
-      'link',
-      { name: 'Users' },
-    )
+    const usersLink = page
+      .getByRole('navigation', { name: 'Platform administration' })
+      .getByRole('link', { name: 'Users' })
     await expect(usersLink).toBeHidden()
 
     await page.getByRole('button', { name: 'Open navigation' }).click()
@@ -194,9 +193,7 @@ test.describe('platform administration', () => {
 
       return route.fulfill(problem('NOT_FOUND', 404))
     })
-    await page.route('**/api/v1/admin/users/user-1', (route) =>
-      route.fulfill(json(userDetail)),
-    )
+    await page.route('**/api/v1/admin/users/user-1', (route) => route.fulfill(json(userDetail)))
     await page.route('**/api/v1/admin/users/user-1/suspend', (route) => {
       expect(route.request().method()).toBe('POST')
       expect(route.request().postDataJSON()).toEqual({
@@ -293,9 +290,7 @@ test.describe('platform administration', () => {
 
   test('shows the normal not-found page when the admin API is disabled', async ({ page }) => {
     await mockSession(page)
-    await page.route('**/api/v1/admin/stats', (route) =>
-      route.fulfill(problem('NOT_FOUND', 404)),
-    )
+    await page.route('**/api/v1/admin/stats', (route) => route.fulfill(problem('NOT_FOUND', 404)))
 
     await page.goto('/admin')
 

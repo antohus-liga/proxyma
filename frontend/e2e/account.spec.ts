@@ -36,9 +36,7 @@ function json(body: unknown, status = 200) {
 }
 
 async function mockSession(page: Page) {
-  await page.route('**/api/v1/auth/refresh', (route) =>
-    route.fulfill(json(loginResponse)),
-  )
+  await page.route('**/api/v1/auth/refresh', (route) => route.fulfill(json(loginResponse)))
   await page.route('**/api/v1/auth/logout', (route) => route.fulfill({ status: 204, body: '' }))
 }
 
@@ -52,11 +50,16 @@ test.describe('account profile', () => {
       await route.fulfill(json({ ...user, display_name: 'Ana Smith' }))
     })
 
-    await page.goto('/app')
+    await page.goto('/settings/account')
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your account')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings')
     await expect(page.getByRole('main').getByText('ana@example.com')).toBeVisible()
     await expect(page.getByText('Standard account')).toBeVisible()
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Settings sections' })
+        .getByRole('link', { name: 'Account' }),
+    ).toHaveAttribute('aria-current', 'page')
 
     await page.getByLabel('Display name').fill('Ana Smith')
     await page.getByRole('button', { name: 'Save changes' }).click()
@@ -68,7 +71,7 @@ test.describe('account profile', () => {
 
   test('validates an empty display name', async ({ page }) => {
     await mockSession(page)
-    await page.goto('/app')
+    await page.goto('/settings/account')
 
     await page.getByLabel('Display name').fill('   ')
     await page.getByRole('button', { name: 'Save changes' }).click()
@@ -87,13 +90,13 @@ test.describe('account password', () => {
       await route.fulfill({ status: 204, body: '' })
     })
 
-    await page.goto('/app/password')
+    await page.goto('/settings/security')
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your account')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings')
     await expect(page.getByText('You will be signed out')).toBeVisible()
     await expect(
-      page.getByRole('navigation', { name: 'Account settings' }).getByRole('link', {
-        name: 'Password',
+      page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link', {
+        name: 'Security',
       }),
     ).toHaveAttribute('aria-current', 'page')
 
@@ -122,7 +125,7 @@ test.describe('account password', () => {
       }),
     )
 
-    await page.goto('/app/password')
+    await page.goto('/settings/security')
     await page.getByLabel(/^Current password/).fill('wrong-password')
     await page.getByLabel(/^New password/).fill('new-password-123')
     await page.getByLabel(/^Confirm new password/).fill('new-password-123')
@@ -134,7 +137,7 @@ test.describe('account password', () => {
 
   test('rejects a mismatched confirmation before submitting', async ({ page }) => {
     await mockSession(page)
-    await page.goto('/app/password')
+    await page.goto('/settings/security')
 
     await page.getByLabel(/^Current password/).fill('old-password')
     await page.getByLabel(/^New password/).fill('new-password-123')
@@ -142,7 +145,7 @@ test.describe('account password', () => {
     await page.getByRole('button', { name: 'Change password' }).click()
 
     await expect(page.getByText('The passwords do not match.')).toBeVisible()
-    await expect(page).toHaveURL(/\/app\/password$/)
+    await expect(page).toHaveURL(/\/settings\/security$/)
   })
 
   test('shows a weak-password error on the new-password field', async ({ page }) => {
@@ -155,7 +158,7 @@ test.describe('account password', () => {
       }),
     )
 
-    await page.goto('/app/password')
+    await page.goto('/settings/security')
     await page.getByLabel(/^Current password/).fill('old-password')
     await page.getByLabel(/^New password/).fill('new-password-123')
     await page.getByLabel(/^Confirm new password/).fill('new-password-123')
@@ -165,7 +168,7 @@ test.describe('account password', () => {
   })
 })
 
-for (const path of ['/app', '/app/password']) {
+for (const path of ['/settings/account', '/settings/general', '/settings/security']) {
   for (const theme of ['light', 'dark']) {
     test(`${path} has no accessibility violations in ${theme} mode`, async ({ page }) => {
       await mockSession(page)
@@ -173,9 +176,7 @@ for (const path of ['/app', '/app/password']) {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
-      const results = await new AxeBuilder({ page })
-        .exclude('.vue-devtools__anchor-btn')
-        .analyze()
+      const results = await new AxeBuilder({ page }).exclude('.vue-devtools__anchor-btn').analyze()
 
       expect(results.violations).toEqual([])
     })

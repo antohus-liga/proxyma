@@ -59,21 +59,19 @@ test.describe('sign in', () => {
     await page.getByLabel(/^Password/).fill('correct horse battery staple')
     await page.getByRole('button', { name: 'Sign in' }).click()
 
-    await expect(page).toHaveURL(/\/app$/)
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your account')
+    await expect(page).toHaveURL(/\/settings\/account$/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings')
     await expect(page.getByLabel('Display name')).toHaveValue('Ana')
     await expect(page.getByRole('main').getByText('ana@example.com')).toBeVisible()
     await expect(
       page
-        .getByRole('navigation', { name: 'Account settings' })
-        .getByRole('link', { name: 'Profile' }),
+        .getByRole('navigation', { name: 'Settings sections' })
+        .getByRole('link', { name: 'Account' }),
     ).toHaveAttribute('aria-current', 'page')
     await expect(
-      page.getByRole('navigation', { name: 'Account' }).getByRole('link', { name: 'Account' }),
+      page.locator('.app-sidebar').getByRole('link', { name: 'Settings' }),
     ).toBeVisible()
-    await expect(
-      page.getByRole('navigation', { name: 'Platform administration' }),
-    ).toHaveCount(0)
+    await expect(page.getByRole('navigation', { name: 'Platform administration' })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Sign out' }).click()
 
@@ -147,9 +145,7 @@ test.describe('create account', () => {
 
     await page.goto('/create-account')
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Create your Proxyma account',
-    )
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Create your Proxyma account')
     await page.getByLabel('Display name').fill('Ana')
     await page.getByLabel('Email').fill('ana@example.com')
     await page.getByLabel(/^Password/).fill('correct horse battery staple')
@@ -232,9 +228,7 @@ for (const path of ['/sign-in', '/create-account']) {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
-      const results = await new AxeBuilder({ page })
-        .exclude('.vue-devtools__anchor-btn')
-        .analyze()
+      const results = await new AxeBuilder({ page }).exclude('.vue-devtools__anchor-btn').analyze()
 
       expect(results.violations).toEqual([])
     })

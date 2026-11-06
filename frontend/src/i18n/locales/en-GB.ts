@@ -14,14 +14,15 @@ export default {
   },
   nav: {
     account: 'Account',
-    accountSection: 'Account',
+    mainSection: 'Main',
+    settings: 'Settings',
     signIn: 'Sign in',
     createAccount: 'Create an account',
     signOut: 'Sign out',
     openMenu: 'Open navigation',
     closeMenu: 'Close navigation',
     adminSection: 'Platform administration',
-    backToDashboard: 'Back to dashboard',
+    backToSettings: 'Back to settings',
     admin: {
       overview: 'Overview',
       users: 'Users',
@@ -35,17 +36,45 @@ export default {
     light: 'Use light theme',
     dark: 'Use dark theme',
   },
-  account: {
-    meta: {
-      title: 'Your account — Proxyma',
-    },
-    title: 'Your account',
-    description: 'Manage your profile and sign-in credentials.',
+  locale: {
+    label: 'Language',
+    english: 'English (UK)',
+    portuguese: 'Português (Portugal)',
+  },
+  settings: {
+    title: 'Settings',
+    description: 'Manage your account, appearance, and sign-in credentials.',
     sections: {
-      label: 'Account settings',
-      profile: 'Profile',
-      password: 'Password',
+      label: 'Settings sections',
+      account: 'Account',
+      general: 'General',
+      security: 'Security',
     },
+    account: {
+      meta: {
+        title: 'Account settings — Proxyma',
+      },
+    },
+    general: {
+      meta: {
+        title: 'General settings — Proxyma',
+      },
+      appearance: {
+        title: 'Appearance',
+        description: 'Choose how Proxyma looks on this device.',
+      },
+      language: {
+        title: 'Language',
+        description: 'Proxyma follows your browser language until you choose one here.',
+      },
+    },
+    security: {
+      meta: {
+        title: 'Security settings — Proxyma',
+      },
+    },
+  },
+  account: {
     profile: {
       title: 'Profile',
       description: 'The name Proxyma shows for you across the dashboard.',

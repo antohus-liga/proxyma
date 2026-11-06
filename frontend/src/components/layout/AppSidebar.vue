@@ -6,8 +6,7 @@ import { LogOut, ShieldCheck } from '@lucide/vue'
 import PxButton from '@/components/ui/PxButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import AppNav from './AppNav.vue'
-import ThemeControl from './ThemeControl.vue'
-import { accountNavItems, adminNavItems } from './nav'
+import { appNavItems, adminNavItems, settingsNavItems } from './nav'
 
 const emit = defineEmits<{
   navigate: []
@@ -41,7 +40,7 @@ async function onSignOut() {
     <div class="app-sidebar__header">
       <RouterLink
         class="app-sidebar__wordmark"
-        to="/app"
+        to="/settings/account"
         :aria-label="t('app.homeLabel')"
         @click="emit('navigate')"
       >
@@ -51,8 +50,9 @@ async function onSignOut() {
 
     <div class="app-sidebar__body">
       <AppNav
-        :items="accountNavItems"
-        :label="t('nav.accountSection')"
+        v-if="appNavItems.length > 0"
+        :items="appNavItems"
+        :label="t('nav.mainSection')"
         @navigate="emit('navigate')"
       />
 
@@ -73,7 +73,11 @@ async function onSignOut() {
     </div>
 
     <div class="app-sidebar__footer">
-      <ThemeControl />
+      <AppNav
+        :items="settingsNavItems"
+        :label="t('nav.settings')"
+        @navigate="emit('navigate')"
+      />
 
       <PxButton
         variant="ghost"
@@ -121,13 +125,15 @@ async function onSignOut() {
 }
 
 .app-sidebar__body {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   overflow-y: auto;
   padding: var(--px-space-2) var(--px-space-4) var(--px-space-6);
 }
 
 .app-sidebar__admin {
-  margin-block-start: var(--px-space-6);
+  margin-block-start: auto;
   padding-block-start: var(--px-space-4);
   border-block-start: var(--px-border-width) solid var(--px-color-border-subtle);
 }

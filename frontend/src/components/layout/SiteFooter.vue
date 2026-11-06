@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import LocaleControl from './LocaleControl.vue'
 
 const { t } = useI18n()
 const year = new Date().getFullYear()
@@ -14,6 +15,7 @@ const year = new Date().getFullYear()
       </RouterLink>
 
       <div class="site-footer__meta">
+        <LocaleControl label-hidden />
         <RouterLink class="site-footer__link" to="/sign-in">{{ t('nav.signIn') }}</RouterLink>
         <p class="site-footer__copyright">{{ t('footer.copyright', { year }) }}</p>
       </div>
@@ -49,8 +51,10 @@ const year = new Date().getFullYear()
 
 .site-footer__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--px-space-6);
+  justify-content: flex-end;
+  gap: var(--px-space-4) var(--px-space-6);
 }
 
 .site-footer__link {

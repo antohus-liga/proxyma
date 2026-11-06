@@ -1,3 +1,4 @@
+import { watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import { i18n } from '@/i18n'
@@ -34,23 +35,41 @@ const router = createRouter({
       meta: { titleKey: 'auth.createAccount.meta.title', guestOnly: true },
     },
     {
-      path: '/app',
-      component: () => import('../views/account/AccountLayoutView.vue'),
+      path: '/settings',
+      component: () => import('../views/settings/SettingsLayoutView.vue'),
       meta: { requiresAuth: true },
       children: [
         {
           path: '',
-          name: 'app',
-          component: () => import('../views/account/AccountProfileView.vue'),
-          meta: { titleKey: 'account.meta.title' },
+          redirect: { name: 'settings-account' },
         },
         {
-          path: 'password',
-          name: 'account-password',
-          component: () => import('../views/account/AccountPasswordView.vue'),
-          meta: { titleKey: 'account.password.meta.title' },
+          path: 'account',
+          name: 'settings-account',
+          component: () => import('../views/settings/SettingsAccountView.vue'),
+          meta: { titleKey: 'settings.account.meta.title' },
+        },
+        {
+          path: 'general',
+          name: 'settings-general',
+          component: () => import('../views/settings/SettingsGeneralView.vue'),
+          meta: { titleKey: 'settings.general.meta.title' },
+        },
+        {
+          path: 'security',
+          name: 'settings-security',
+          component: () => import('../views/settings/SettingsSecurityView.vue'),
+          meta: { titleKey: 'settings.security.meta.title' },
         },
       ],
+    },
+    {
+      path: '/app',
+      redirect: { name: 'settings-account' },
+    },
+    {
+      path: '/app/password',
+      redirect: { name: 'settings-security' },
     },
     {
       path: '/admin',
@@ -107,6 +126,14 @@ const router = createRouter({
   },
 })
 
+watch(i18n.global.locale, () => {
+  const { meta } = router.currentRoute.value
+
+  if (meta.titleKey) {
+    document.title = i18n.global.t(meta.titleKey)
+  }
+})
+
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
@@ -136,7 +163,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
-    return { name: 'app' }
+    return { name: 'settings-account' }
   }
 
   return true

@@ -7,10 +7,10 @@ import AppTopBar from './AppTopBar.vue'
 
 const props = withDefaults(
   defineProps<{
-    context?: 'account' | 'admin'
+    context?: 'settings' | 'admin'
   }>(),
   {
-    context: 'account',
+    context: 'settings',
   },
 )
 

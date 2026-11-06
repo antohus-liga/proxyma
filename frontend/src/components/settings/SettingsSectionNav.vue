@@ -6,22 +6,23 @@ const { t } = useI18n()
 const route = useRoute()
 
 const sections = [
-  { labelKey: 'account.sections.profile', to: '/app' },
-  { labelKey: 'account.sections.password', to: '/app/password' },
+  { labelKey: 'settings.sections.account', to: '/settings/account' },
+  { labelKey: 'settings.sections.general', to: '/settings/general' },
+  { labelKey: 'settings.sections.security', to: '/settings/security' },
 ]
 
 function isActive(to: string): boolean {
-  return route.path === to
+  return route.path === to || route.path.startsWith(`${to}/`)
 }
 </script>
 
 <template>
-  <nav class="account-section-nav" :aria-label="t('account.sections.label')">
-    <ul class="account-section-nav__list">
+  <nav class="settings-section-nav" :aria-label="t('settings.sections.label')">
+    <ul class="settings-section-nav__list">
       <li v-for="section in sections" :key="section.to">
         <RouterLink
-          class="account-section-nav__link"
-          :class="{ 'account-section-nav__link--active': isActive(section.to) }"
+          class="settings-section-nav__link"
+          :class="{ 'settings-section-nav__link--active': isActive(section.to) }"
           :to="section.to"
           :aria-current="isActive(section.to) ? 'page' : undefined"
         >
@@ -33,7 +34,7 @@ function isActive(to: string): boolean {
 </template>
 
 <style scoped>
-.account-section-nav__list {
+.settings-section-nav__list {
   display: flex;
   flex-direction: column;
   gap: var(--px-space-1);
@@ -42,7 +43,7 @@ function isActive(to: string): boolean {
   list-style: none;
 }
 
-.account-section-nav__link {
+.settings-section-nav__link {
   position: relative;
   display: block;
   padding: var(--px-space-2) var(--px-space-3);
@@ -56,18 +57,18 @@ function isActive(to: string): boolean {
     color var(--px-duration-fast) var(--px-ease-out);
 }
 
-.account-section-nav__link:hover {
+.settings-section-nav__link:hover {
   background: var(--px-color-surface-subtle);
   color: var(--px-color-text-primary);
   text-decoration: none;
 }
 
-.account-section-nav__link--active {
+.settings-section-nav__link--active {
   background: var(--px-color-accent-subtle);
   color: var(--px-color-accent);
 }
 
-.account-section-nav__link--active::before {
+.settings-section-nav__link--active::before {
   position: absolute;
   inset-block: 8px;
   inset-inline-start: 0;
@@ -77,18 +78,18 @@ function isActive(to: string): boolean {
   content: '';
 }
 
-.account-section-nav__link--active:hover {
+.settings-section-nav__link--active:hover {
   background: var(--px-color-accent-subtle);
   color: var(--px-color-accent);
 }
 
-.account-section-nav__link:focus-visible {
+.settings-section-nav__link:focus-visible {
   outline: none;
   box-shadow: var(--px-focus-ring);
 }
 
 @media (max-width: 1023px) {
-  .account-section-nav__list {
+  .settings-section-nav__list {
     flex-direction: row;
     gap: var(--px-space-1);
     padding-block-end: var(--px-space-2);
@@ -96,11 +97,11 @@ function isActive(to: string): boolean {
     overflow-x: auto;
   }
 
-  .account-section-nav__link {
+  .settings-section-nav__link {
     white-space: nowrap;
   }
 
-  .account-section-nav__link--active::before {
+  .settings-section-nav__link--active::before {
     inset: auto auto 0 0;
     width: 100%;
     height: 2px;

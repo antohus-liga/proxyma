@@ -6,7 +6,7 @@ import PxIconButton from '@/components/ui/PxIconButton.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
-  context: 'account' | 'admin'
+  context: 'settings' | 'admin'
   drawerOpen: boolean
   sidebarId: string
 }>()
@@ -38,7 +38,7 @@ const initials = computed(() => auth.user?.display_name.trim().charAt(0).toUpper
         <ShieldCheck :size="15" aria-hidden="true" />
         {{ t('nav.adminSection') }}
       </span>
-      <span v-else class="app-topbar__context-label">{{ t('nav.accountSection') }}</span>
+      <span v-else class="app-topbar__context-label">{{ t('nav.settings') }}</span>
     </div>
 
     <div v-if="auth.user" class="app-topbar__account">

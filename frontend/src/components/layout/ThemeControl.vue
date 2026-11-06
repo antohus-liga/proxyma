@@ -4,6 +4,15 @@ import { useI18n } from 'vue-i18n'
 import { Monitor, Moon, Sun } from '@lucide/vue'
 import { useTheme, type ThemePreference } from '@/composables/useTheme'
 
+const props = withDefaults(
+  defineProps<{
+    labelHidden?: boolean
+  }>(),
+  {
+    labelHidden: false,
+  },
+)
+
 const { t } = useI18n()
 const { preference, setPreference } = useTheme()
 
@@ -20,7 +29,9 @@ function select(value: ThemePreference) {
 
 <template>
   <div class="theme-control">
-    <p class="theme-control__label">{{ t('theme.label') }}</p>
+    <p class="theme-control__label" :class="{ 'px-visually-hidden': props.labelHidden }">
+      {{ t('theme.label') }}
+    </p>
     <div class="theme-control__options" role="group" :aria-label="t('theme.label')">
       <button
         v-for="option in options"

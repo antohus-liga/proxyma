@@ -298,7 +298,7 @@ The frontend already includes these packages. They are approved; adding another 
 | `@fontsource-variable/inter` | UI typeface | Self-hosted, imported once in `main.ts`. |
 | `@fontsource-variable/jetbrains-mono` | Technical typeface | Self-hosted, imported once in `main.ts`. |
 | `@unovis/vue` + `@unovis/ts` | Charts | Lazy-load the chart chunk; do not ship it in the initial shell. |
-| `vue-i18n` | Translation and locale formatting | All UI strings live in catalogues. Default locale `en-GB`. |
+| `vue-i18n` | Translation and locale formatting | All UI strings live in catalogues. Locales `en-GB` and `pt-PT`; default `en-GB`. |
 | `@axe-core/playwright` | Accessibility testing (dev) | Run in the existing Playwright suite. |
 
 **Rejected:** Tailwind, UnoCSS, shadcn-vue, PrimeVue, Vuetify, Element Plus, Naive UI, Ant Design Vue, Headless UI, Font Awesome, icon fonts, `lucide-vue-next`, `moment`, `date-fns`, `lodash`, `vue-toastification`, `floating-vue`, `vuedraggable`.
@@ -699,14 +699,15 @@ Use tabular numerals for:
 
 **MUST**
 
-- Default locale: `en-GB`.
-- Every user-facing string comes from `src/i18n/locales/en-GB.ts` (proposed). No hardcoded English in templates.
+- Default locale: `en-GB`. Shipped locales: `en-GB` and `pt-PT`.
+- Every user-facing string comes from a catalogue in `src/i18n/locales/`. No hardcoded English in templates.
 - Use interpolation and pluralisation, never string concatenation.
 - Allow 30–40% text expansion in buttons, tabs, table headers, and navigation.
 - Do not fix widths on text containers unless truncation with a tooltip is deliberate.
 - Set `document.documentElement.lang` from the active locale.
 - Use `Intl.DateTimeFormat`, `Intl.NumberFormat`, and `Intl.RelativeTimeFormat` with the active locale.
-- Keep the language switcher hidden while only one locale is registered.
+- Detect the locale from an explicit stored choice, then `navigator.languages`, then `en-GB`.
+- Keep the language switcher hidden while only one locale is registered. Show it in public, auth, and app chrome once more than one catalogue ships.
 
 Namespaced message keys:
 
@@ -779,7 +780,7 @@ export default {
 | Navigation item | 36px high, 8px horizontal padding, 6px radius, 16px icon + 10px gap, 14px/500 label |
 | Active navigation | `--px-color-accent-subtle` background, `--px-color-accent` text and icon, 2px left indicator |
 | Hover navigation | `--px-color-surface-subtle` background, primary text |
-| Sidebar footer | Theme control, help link, account menu; separated by a 1px rule |
+| Sidebar footer | Settings link, then Sign out; preferences live in Settings → General. Separated by a 1px rule |
 | Admin section | Below a 1px rule at the bottom, visually separated, shield icon and section label, only when `is_platform_admin` is true |
 | Top bar | 56px high, sticky, `--px-color-canvas`, bottom border, 16–24px horizontal padding |
 | Content | `--px-content-max`, 32px top padding, 48px bottom padding |
@@ -793,10 +794,12 @@ export default {
 4. Bans
 5. Team
 6. Audit
-7. Settings
-8. Admin (separate section, bottom, platform admins only)
+7. Settings (sidebar footer, above Sign out)
+8. Admin (separate section, bottom of the body, platform admins only)
 
-Until organisation and proxy surfaces exist, the account sidebar shows only **Account**, with Profile and Password as sections inside that area. Do not add a separate top-level Settings item for account-only settings. Add Settings as a top-level item only when it owns broader organisation settings.
+Until organisation and proxy surfaces exist, the sidebar shows only **Settings**. Settings contains Account, General, and Security; Account is a section within Settings rather than a competing top-level item. Add an Organisations section when organisation surfaces exist.
+
+Settings sits in the sidebar footer directly above Sign out. The primary navigation and the platform-administration section stay in the body.
 
 **Icons:** `LayoutDashboard`, `Route`, `Activity`, `ShieldBan`, `Users`, `ScrollText`, `Settings`, `ShieldCheck`.
 
@@ -804,7 +807,7 @@ Until organisation and proxy surfaces exist, the account sidebar shows only **Ac
 
 - Keep the navigation order stable. Do not add a top-level item without updating this guide.
 - Show the org switcher even when the user has one organisation; it establishes context and scales.
-- Keep the theme control in the account menu on mobile and in the sidebar footer on desktop.
+- Keep preferences in Settings → General. Do not duplicate theme or language controls in the sidebar footer.
 - Never hide the Admin entry from an admin on mobile.
 
 ### 7.3 Page templates
@@ -1704,15 +1707,16 @@ Use tabs or a secondary sidebar inside the Routes area:
 
 ### 9.10 Settings
 
-**Placement:** until organisation settings exist, account settings live under **Account** with Profile at `/app` and Password at `/app/password`. The Account sidebar item stays active for both routes. Use section navigation inside the Account area rather than adding a competing top-level Settings item.
+**Placement:** Settings is the top-level destination. Account is at `/settings/account`, General at `/settings/general`, and Security at `/settings/security`. `/settings` redirects to Account. Legacy `/app` and `/app/password` redirect to the corresponding sections. The Settings sidebar item stays active for every section.
 
 **Sections**
 
-- Profile: display name, save. Show the email as static text in the form; never as a disabled or read-only input. Only the display name is editable while `PATCH /users/me` accepts no other field.
-- Password: current password, new password, confirm. A successful change invalidates every session and forces a new sign-in; explain this before saving.
-- Organisation: name, proxy URL, timezone display preference if added, danger zone for deletion.
-- Appearance: System / Light / Dark.
-- Language: only when more than one locale is registered.
+- Account: profile, email, account type, and the platform-administration entry. Profile: display name, save. Show the email as static text in the form; never as a disabled or read-only input. Only the display name is editable while `PATCH /users/me` accepts no other field.
+- General: appearance and language.
+  - Appearance: System / Light / Dark.
+  - Language: only when more than one locale is registered. The control also lives in the public footer and auth card so users can override browser detection before signing in.
+- Security: password change. Current password, new password, confirm. A successful change invalidates every session and forces a new sign-in; explain this before saving.
+- Organisation: add a section when organisation surfaces exist. Name, proxy URL, timezone display preference if added, danger zone for deletion.
 
 **MUST**
 
@@ -1730,7 +1734,7 @@ Admin is a separate platform context, not an organisation role.
 
 - Show a persistent “Platform administration” marker in the top bar or page header. Show it once; do not repeat it in the sidebar header.
 - Use the same tokens and components, but a distinct context label. Do not build a second design system.
-- Keep the admin navigation in its own labelled section at the bottom of the sidebar. The persistent Account link is the way back to account views; do not add a separate “Back to dashboard” link.
+- Keep the admin navigation in its own labelled section at the bottom of the sidebar body, above the footer. The persistent Settings link is the way back to account views; do not add a separate “Back to dashboard” link.
 - Admin views are metadata-only: no config contents, no logs, no ban IPs, no org audit. Do not design panels that imply access the API does not grant.
 - All actions must be available on mobile, including risky ones. On small screens, risky actions open a full-screen step-up sheet.
 - Risky actions (suspend, force logout) require the admin's own password and a reason (maximum 500 characters). Use a step-up dialog, not a browser confirm.
@@ -2269,7 +2273,7 @@ Target **WCAG 2.2 AA**. Accessibility is a release requirement, not a later audi
 - Use real `<table>`, `<form>`, `<label>`, `<select>`, and `<dialog>` semantics.
 - Use `<ul>`/`<ol>` for lists, including navigation and audit events where the order matters.
 - Decorative icons get `aria-hidden="true"`. Icon-only buttons get `aria-label`.
-- The document `<html lang>` must be set to the active locale (`en-GB` by default).
+- The document `<html lang>` must be set to the active locale (`en-GB` by default, `pt-PT` when selected).
 - Set a unique, descriptive `<title>` per route.
 
 ### 13.4 Forms
@@ -2356,7 +2360,7 @@ Proxyma sounds like a competent colleague who is calm under pressure.
 
 ### 14.2 British English
 
-Default locale: `en-GB`.
+Default locale: `en-GB`; Portuguese copy uses European Portuguese (`pt-PT`).
 
 | Use | Not |
 |---|---|
@@ -2517,7 +2521,45 @@ Approved:
 - Primary CTA: **“Create an account”**
 - Secondary CTA: **“Sign in”**
 
+Portuguese (`pt-PT`) equivalents:
+
+- H1: **“Sempre perto, sempre presente.”**
+- Supporting line: **“Um proxy reverso que não precisa de supervisão constante.”**
+- Primary CTA: **“Criar uma conta”**
+- Secondary CTA: **“Iniciar sessão”**
+
 The homepage may add concrete value propositions, but it must not invent customers, benchmarks, or claims. Keep the tone confident and plain.
+
+### 14.12 Portuguese (pt-PT) terminology
+
+Use the same terms across the product so users do not have to relearn them per screen.
+
+| Concept | Use | Not |
+|---|---|---|
+| account | conta | conta de utilizador |
+| audit | auditoria | audit |
+| ban | banimento | ban |
+| config version | versão da configuração | versão de config |
+| display name | nome a apresentar | nome de exibição |
+| email | email | e-mail |
+| heartbeat | sinal de atividade | heartbeat |
+| member | membro | membro de equipa |
+| organisation | organização | organizaçao (sem acento) |
+| owner | proprietário | dono |
+| co-owner | coproprietário | co-dono |
+| password | palavra-passe | password |
+| platform administrator | administrador da plataforma | admin |
+| proxy | proxy | servidor intermédio |
+| rate limit | limite de taxa | rate limit |
+| route | rota | caminho |
+| session | sessão | sessão de utilizador |
+| sign in | iniciar sessão | fazer login |
+| sign out | terminar sessão | fazer logout |
+| suspend | suspender | desativar |
+| traffic | tráfego | tráfego de rede |
+| user | utilizador | usuário |
+
+Keep API field names, status enums, and log content in their original form. Translate their labels, not the wire format.
 
 ---
 
@@ -2631,11 +2673,15 @@ src/
 │   ├── layout/         # AppShell, Sidebar, TopBar, PageHeader
 │   └── charts/         # TrafficChart, LatencyChart, Sparkline
 ├── composables/
-│   ├── useTheme.ts
-│   └── useFormatters.ts
+│   ├── useFormatters.ts
+│   ├── useLocale.ts
+│   └── useTheme.ts
 ├── i18n/
 │   ├── index.ts
-│   └── locales/en-GB.ts
+│   ├── locale.ts       # detection, storage, document language
+│   └── locales/
+│       ├── en-GB.ts
+│       └── pt-PT.ts
 ├── lib/
 │   └── api.ts          # typed fetch wrapper, problem+json handling
 └── views/
@@ -2747,29 +2793,36 @@ The theme preference is three-state: **System**, **Light**, **Dark**. Store it i
 **Setup**
 
 ```ts
-// src/i18n/index.ts (proposed)
+// src/i18n/index.ts
 import { createI18n } from 'vue-i18n'
 import enGB from './locales/en-GB'
+import ptPT from './locales/pt-PT'
+import { resolveInitialLocale } from './locale'
 
 export const i18n = createI18n({
   legacy: false,
-  locale: 'en-GB',
+  locale: resolveInitialLocale(),
   fallbackLocale: 'en-GB',
   messages: {
     'en-GB': enGB,
+    'pt-PT': ptPT,
   },
 })
 ```
 
 **Rules**
 
-- Only `en-GB` ships initially. Add locales to the catalogue map; the language switcher appears only when more than one is registered.
+- Shipped locales: `en-GB` (default) and `pt-PT`. Add new catalogues to the map and to `SUPPORTED_LOCALES`; the language switcher appears when more than one is registered.
+- Resolve the first visit in this order: valid stored choice, the first supported entry in `navigator.languages`, then `en-GB`.
+- Persist explicit choices in `localStorage` under `proxyma.locale`. Do not persist an auto-detected locale, so a later browser-language change still applies.
+- Exact matches win, then the base language: `en-US` uses `en-GB`; any Portuguese variant uses `pt-PT` until a `pt-BR` catalogue exists.
+- The switcher lives in the public footer, auth card, and Settings → General. The homepage hero, header, and sidebar footer stay free of language controls.
 - Every UI string is a key. No literal English in templates, except user data and technical values.
 - Use interpolation: `t('traffic.range.summary', { count, range })`.
 - Use pluralisation: `t('bans.count', count, { count })`, not `count + ' bans'`.
 - Use `<i18n-t>` for sentences with embedded links; never concatenate translated fragments.
 - Error codes map to `errors.<CODE>`. Unknown codes fall back to `errors.UNKNOWN`.
-- On locale change, set `document.documentElement.lang` and update `Intl` formatters.
+- On locale change, set `document.documentElement.lang`, re-apply the route title, and update `Intl` formatters.
 - Format dates and numbers with `Intl`, using the active locale and the browser timezone.
 - Allow 30–40% expansion. Test the longest catalogue string in buttons, tabs, and table headers.
 - Do not translate API field names, status enum values, or log content. Translate their labels.
@@ -3066,7 +3119,7 @@ bun run test:e2e
 2. **Find the pattern.** Match the screen to section 9 and the component to section 8.
 3. **Reuse before creating.** If a `Px*` component exists, use it. If it almost fits, extend it with a documented variant rather than forking it in a view.
 4. **Use tokens.** If a value is missing, add a semantic token to section 5 and `tokens.css` as part of the change. Never inline a one-off colour, radius, or spacing value.
-5. **Use the catalogue.** Add keys to `en-GB.ts`, use interpolation and plurals, and do not concatenate sentences.
+5. **Use the catalogue.** Add keys to every locale catalogue, use interpolation and plurals, and do not concatenate sentences.
 6. **Model every state.** Default, hover, active, focus, disabled, loading, error, empty, and dark mode.
 7. **Be honest about data.** Do not invent a metric, a percentile, a time series, a customer, or a completion state. If the API does not provide it, show “Not available yet” or omit the surface.
 8. **Respect the security rules.** Logs are plain text. Never use `v-html`. Never derive permissions from the JWT. Never design impersonation.
@@ -3230,7 +3283,7 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 | 2 | What is the final latency-aggregate shape and release? | Design against `latency_ms: { p50, p95, p99 }`; do not render a time series until it exists | Backend |
 | 3 | Is ownership transfer in scope? | No transfer UI; `OWNER_PROTECTED` explains the limit | Product |
 | 4 | Is the homepage part of this SPA or a separate marketing site? | Design as a public route in this repo; decide before implementation | Product |
-| 5 | Which locales follow `en-GB`? | Only `en-GB` ships; the switcher stays hidden | Product |
+| 5 | Which locales follow `en-GB`? | `en-GB` and `pt-PT` ship; all Portuguese variants use `pt-PT` until a `pt-BR` catalogue exists | Product |
 | 6 | Is email change supported? | Treat email as read-only until an endpoint exists | Backend |
 | 7 | Is audit export in scope? | Read-only audit; no export control | Product |
 | 8 | Should admin gain org-level controls beyond account suspension and force logout? | Account-only; do not invent org suspension | Product |
@@ -3255,6 +3308,8 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 | 2026-11-02 | Homepage copy: “Always near, always here.” / “A reverse proxy you don't have to babysit.” | Approved |
 | 2026-11-02 | Globe art is homepage-only, oxblood ink in light mode, inverted to warm light in dark mode with no plate | Approved |
 | 2026-11-02 | Latency time series requires a `/logs/stats` aggregate extension | Blocked on backend |
+| 2026-11-06 | Add `pt-PT`; detect browser language with a stored override; put the switcher in the public footer, auth card, and app sidebar | Approved |
+| 2026-11-06 | Replace the top-level Account item with Settings; sections Account, General, and Security; keep preferences out of the sidebar footer | Approved |
 
 ### 17.5 Changelog
 
@@ -3262,3 +3317,5 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 |---|---|---|
 | 1.0 | 2 November 2026 | Initial design system: brand, tokens, typography, layout, components, application patterns, data visualisation, interaction, responsive, accessibility, voice, implementation, appendices. |
 | 1.1 | 2 November 2026 | Homepage: dark-mode globe inverts its ink to a warm light tone on the canvas; the paper plate is removed. |
+| 1.2 | 6 November 2026 | Add the `pt-PT` catalogue, locale detection and persistence, and the language switcher in the public footer, auth card, and app sidebar. |
+| 1.3 | 6 November 2026 | Replace the Account destination with Settings; move preferences into Settings → General and place Settings directly above Sign out in the sidebar footer. |

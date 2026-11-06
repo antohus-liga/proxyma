@@ -6,7 +6,7 @@ import enGB from '@/i18n/locales/en-GB'
 import { accountApi, type ChangePasswordInput, type UpdateProfileInput } from '@/lib/account-api'
 import { api, ApiError, type ApiProblem, type User } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import AccountPasswordView from '../account/AccountPasswordView.vue'
+import SettingsSecurityView from '../settings/SettingsSecurityView.vue'
 import { createTestRouter } from './test-router'
 
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -62,12 +62,12 @@ async function mountPassword() {
     locale: 'en-GB',
     messages: { 'en-GB': enGB },
   })
-  const router = createTestRouter({ 'account-password': AccountPasswordView })
+  const router = createTestRouter({ 'settings-security': SettingsSecurityView })
 
-  await router.push('/app/password')
+  await router.push('/settings/security')
   await router.isReady()
 
-  const wrapper = mount(AccountPasswordView, {
+  const wrapper = mount(SettingsSecurityView, {
     global: {
       plugins: [pinia, router, i18n],
     },
@@ -87,7 +87,7 @@ async function fillForm(
   await newPasswordInputs[1]!.setValue(values.confirm)
 }
 
-describe('AccountPasswordView', () => {
+describe('SettingsSecurityView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockedLogout.mockResolvedValue(undefined)
@@ -141,7 +141,10 @@ describe('AccountPasswordView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('That password is incorrect. Try again.')
-    expect(wrapper.get('input[autocomplete="current-password"]').element).toHaveProperty('value', '')
+    expect(wrapper.get('input[autocomplete="current-password"]').element).toHaveProperty(
+      'value',
+      '',
+    )
   })
 
   it('maps a weak new password to the new-password field', async () => {

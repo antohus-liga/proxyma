@@ -9,7 +9,7 @@ Vue 3 + TypeScript frontend for Proxyma, the managed reverse proxy.
 - Reka UI primitives with custom Proxyma CSS
 - Lucide icons
 - Self-hosted Inter and JetBrains Mono
-- vue-i18n, default locale `en-GB`
+- vue-i18n, locales `en-GB` (default) and `pt-PT`
 - Vitest and Playwright
 
 No utility CSS framework, component kit, or preprocessor is used.

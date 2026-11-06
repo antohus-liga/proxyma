@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import enGB from '@/i18n/locales/en-GB'
 import AppNav from '../AppNav.vue'
-import { accountNavItems } from '../nav'
+import { settingsNavItems } from '../nav'
 
 const StubView = { template: '<div />' }
 
@@ -12,8 +12,9 @@ async function mountNav(path: string) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/app', name: 'app', component: StubView },
-      { path: '/app/password', name: 'account-password', component: StubView },
+      { path: '/settings', name: 'settings', component: StubView },
+      { path: '/settings/account', name: 'settings-account', component: StubView },
+      { path: '/settings/general', name: 'settings-general', component: StubView },
       { path: '/admin', name: 'admin', component: StubView },
       { path: '/admin/users', name: 'admin-users', component: StubView },
     ],
@@ -30,8 +31,8 @@ async function mountNav(path: string) {
 
   return mount(AppNav, {
     props: {
-      items: accountNavItems,
-      label: 'Account',
+      items: settingsNavItems,
+      label: 'Settings',
     },
     global: {
       plugins: [router, i18n],
@@ -40,16 +41,16 @@ async function mountNav(path: string) {
 }
 
 describe('AppNav', () => {
-  it('marks Account as current on the profile route', async () => {
-    const wrapper = await mountNav('/app')
+  it('marks Settings as current on the settings route', async () => {
+    const wrapper = await mountNav('/settings')
 
-    expect(wrapper.get('a[href="/app"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.get('a[href="/settings"]').attributes('aria-current')).toBe('page')
   })
 
-  it('keeps Account current on the password route', async () => {
-    const wrapper = await mountNav('/app/password')
+  it('keeps Settings current on nested settings routes', async () => {
+    const wrapper = await mountNav('/settings/general')
 
-    expect(wrapper.get('a[href="/app"]').attributes('aria-current')).toBe('page')
-    expect(wrapper.get('a[href="/app"]').classes()).toContain('app-nav__link--active')
+    expect(wrapper.get('a[href="/settings"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.get('a[href="/settings"]').classes()).toContain('app-nav__link--active')
   })
 })

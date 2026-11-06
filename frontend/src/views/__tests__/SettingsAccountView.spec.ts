@@ -6,7 +6,7 @@ import enGB from '@/i18n/locales/en-GB'
 import { accountApi, type ChangePasswordInput, type UpdateProfileInput } from '@/lib/account-api'
 import { ApiError, type ApiProblem, type User } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import AccountProfileView from '../account/AccountProfileView.vue'
+import SettingsAccountView from '../settings/SettingsAccountView.vue'
 import { createTestRouter } from './test-router'
 
 vi.mock('@/lib/account-api', () => ({
@@ -51,12 +51,12 @@ async function mountProfile(initialUser: User = user) {
     locale: 'en-GB',
     messages: { 'en-GB': enGB },
   })
-  const router = createTestRouter({ app: AccountProfileView })
+  const router = createTestRouter({ 'settings-account': SettingsAccountView })
 
-  await router.push('/app')
+  await router.push('/settings/account')
   await router.isReady()
 
-  const wrapper = mount(AccountProfileView, {
+  const wrapper = mount(SettingsAccountView, {
     global: {
       plugins: [pinia, router, i18n],
     },
@@ -65,7 +65,7 @@ async function mountProfile(initialUser: User = user) {
   return { wrapper, auth }
 }
 
-describe('AccountProfileView', () => {
+describe('SettingsAccountView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())

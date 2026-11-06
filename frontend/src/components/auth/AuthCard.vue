@@ -2,6 +2,7 @@
 import { useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import LocaleControl from '@/components/layout/LocaleControl.vue'
 
 defineProps<{
   title: string
@@ -15,9 +16,12 @@ const titleId = useId()
 <template>
   <main id="main-content" class="auth-page">
     <section class="auth-card" :aria-labelledby="titleId">
-      <RouterLink class="auth-card__wordmark" to="/" :aria-label="t('app.homeLabel')">
-        {{ t('app.wordmark') }}
-      </RouterLink>
+      <div class="auth-card__header">
+        <RouterLink class="auth-card__wordmark" to="/" :aria-label="t('app.homeLabel')">
+          {{ t('app.wordmark') }}
+        </RouterLink>
+        <LocaleControl label-hidden />
+      </div>
 
       <h1 :id="titleId" class="auth-card__title" tabindex="-1">{{ title }}</h1>
       <p v-if="description" class="auth-card__description">{{ description }}</p>
@@ -50,9 +54,16 @@ const titleId = useId()
   background: var(--px-color-surface);
 }
 
+.auth-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--px-space-4);
+  margin-bottom: var(--px-space-8);
+}
+
 .auth-card__wordmark {
   display: inline-block;
-  margin-bottom: var(--px-space-8);
   color: var(--px-color-text-primary);
   font-size: 20px;
   font-weight: var(--px-font-weight-semibold);

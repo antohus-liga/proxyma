@@ -125,7 +125,7 @@ describe('SignInView', () => {
       email: 'ana@example.com',
       password: 'correct horse battery staple',
     })
-    expect(router.currentRoute.value.path).toBe('/app')
+    expect(router.currentRoute.value.path).toBe('/settings/account')
   })
 
   it('keeps the email and clears the password after invalid credentials', async () => {
