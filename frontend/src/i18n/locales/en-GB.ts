@@ -1,0 +1,591 @@
+export default {
+  app: {
+    name: 'Proxyma',
+    wordmark: 'proxyma',
+    homeLabel: 'Proxyma home',
+  },
+  a11y: {
+    skipToContent: 'Skip to main content',
+  },
+  common: {
+    required: 'required',
+    close: 'Close',
+    cancel: 'Cancel',
+  },
+  nav: {
+    account: 'Account',
+    mainSection: 'Main',
+    settings: 'Settings',
+    signIn: 'Sign in',
+    createAccount: 'Create an account',
+    signOut: 'Sign out',
+    openMenu: 'Open navigation',
+    closeMenu: 'Close navigation',
+    adminSection: 'Platform administration',
+    backToSettings: 'Back to settings',
+    admin: {
+      overview: 'Overview',
+      users: 'Users',
+      orgs: 'Organisations',
+      audit: 'Audit',
+    },
+  },
+  theme: {
+    label: 'Theme',
+    system: 'Use system theme',
+    light: 'Use light theme',
+    dark: 'Use dark theme',
+  },
+  locale: {
+    label: 'Language',
+    english: 'English (UK)',
+    portuguese: 'Português (Portugal)',
+  },
+  settings: {
+    title: 'Settings',
+    description: 'Manage your account, appearance, and sign-in credentials.',
+    sections: {
+      label: 'Settings sections',
+      account: 'Account',
+      general: 'General',
+      security: 'Security',
+    },
+    account: {
+      meta: {
+        title: 'Account settings — Proxyma',
+      },
+    },
+    general: {
+      meta: {
+        title: 'General settings — Proxyma',
+      },
+      appearance: {
+        title: 'Appearance',
+        description: 'Choose how Proxyma looks on this device.',
+      },
+      language: {
+        title: 'Language',
+        description: 'Proxyma follows your browser language until you choose one here.',
+      },
+    },
+    security: {
+      meta: {
+        title: 'Security settings — Proxyma',
+      },
+    },
+  },
+  account: {
+    profile: {
+      title: 'Profile',
+      description: 'The name Proxyma shows for you across the dashboard.',
+      displayName: {
+        label: 'Display name',
+        help: 'Use between 1 and 80 characters.',
+      },
+      email: {
+        label: 'Email',
+        help: 'Contact the platform operator to change the email on your account.',
+      },
+      type: {
+        label: 'Account type',
+        admin: 'Platform administrator',
+        standard: 'Standard account',
+      },
+      save: 'Save changes',
+      success: 'Your profile has been updated.',
+      fieldErrors: {
+        required: 'Enter a display name.',
+        tooLong: 'Use 80 characters or fewer.',
+        invalid: 'Enter a display name of 80 characters or fewer.',
+      },
+    },
+    password: {
+      meta: {
+        title: 'Password — Proxyma',
+      },
+      title: 'Password',
+      description: 'Change the password you use to sign in to Proxyma.',
+      warning: {
+        title: 'You will be signed out',
+        description:
+          'Changing your password signs you out of every device, including this one. Sign in again with your new password.',
+      },
+      currentPassword: {
+        label: 'Current password',
+      },
+      newPassword: {
+        label: 'New password',
+        help: 'Use at least 10 characters. Avoid common passwords.',
+      },
+      confirmPassword: {
+        label: 'Confirm new password',
+      },
+      submit: 'Change password',
+      fieldErrors: {
+        currentRequired: 'Enter your current password.',
+        currentInvalid: 'Enter your current password.',
+        newRequired: 'Enter a new password.',
+        newInvalid: 'Use a new password between 10 and 128 characters.',
+        tooShort: 'Use at least 10 characters.',
+        tooLong: 'Use 128 characters or fewer.',
+        confirmRequired: 'Confirm your new password.',
+        mismatch: 'The passwords do not match.',
+      },
+    },
+    admin: {
+      title: 'Platform administration',
+      description: 'Inspect platform users, organisations, and the admin audit trail.',
+      open: 'Open platform administration',
+    },
+  },
+  home: {
+    meta: {
+      title: 'Proxyma — Always near, always here.',
+    },
+    hero: {
+      eyebrow: 'Managed reverse proxy',
+      title: 'Always near, always here.',
+      lead: "A reverse proxy you don't have to babysit.",
+      body: 'Proxyma runs an isolated proxy container for your project. Add routes, set rate limits, and watch live traffic from one dashboard.',
+    },
+    valueProps: {
+      title: 'Why Proxyma',
+      proxy: {
+        title: 'Your own proxy',
+        body: 'An isolated container and URL for each organisation.',
+      },
+      traffic: {
+        title: 'Traffic you can see',
+        body: 'Live requests, latency, and bans without a terminal.',
+      },
+      changes: {
+        title: 'Changes without a restart',
+        body: 'Routes and limits apply as a new config version.',
+      },
+    },
+    howItWorks: {
+      title: 'How it works',
+      intro: 'Three steps from an account to your first proxied request.',
+      steps: {
+        account: {
+          title: 'Create an account',
+          body: 'Start with your email and a password.',
+        },
+        organisation: {
+          title: 'Create an organisation',
+          body: 'Proxyma starts an isolated proxy container and gives you its URL.',
+        },
+        traffic: {
+          title: 'Point traffic at your proxy',
+          body: 'Add a route, set a rate limit, and send requests through it.',
+        },
+      },
+    },
+    closing: {
+      title: 'No server setup. No hand-edited configuration.',
+      body: 'Create an account and Proxyma starts an isolated proxy container for your project.',
+    },
+  },
+  footer: {
+    copyright: '© {year} Proxyma',
+  },
+  auth: {
+    signIn: {
+      meta: {
+        title: 'Sign in — Proxyma',
+      },
+      title: 'Sign in to Proxyma',
+      description: 'Enter your email and password to manage your proxy.',
+      submit: 'Sign in',
+      newHere: 'New to Proxyma?',
+      createAccountLink: 'Create an account',
+      sessionExpired: 'Your session has ended. Sign in again.',
+      passwordChanged: 'Password changed. Sign in with your new password.',
+    },
+    createAccount: {
+      meta: {
+        title: 'Create an account — Proxyma',
+      },
+      title: 'Create your Proxyma account',
+      description: 'Create an account to start using Proxyma.',
+      submit: 'Create account',
+      haveAccount: 'Already have an account?',
+      signInLink: 'Sign in',
+      passwordHelp: 'Use at least 10 characters. Avoid common passwords.',
+      emailTaken: 'An account with this email already exists.',
+      emailTakenLink: 'Sign in instead',
+      success: {
+        title: 'Account created',
+        description: 'Sign in to continue.',
+        signIn: 'Sign in',
+      },
+    },
+    fields: {
+      displayName: 'Display name',
+      email: 'Email',
+      password: 'Password',
+    },
+    password: {
+      show: 'Show',
+      hide: 'Hide',
+      showLabel: 'Show password',
+      hideLabel: 'Hide password',
+    },
+    fieldErrors: {
+      displayName: {
+        required: 'Enter a display name.',
+        tooLong: 'Use 80 characters or fewer.',
+        invalid: 'Enter a display name of 80 characters or fewer.',
+      },
+      email: {
+        required: 'Enter your email address.',
+        tooLong: 'Use 254 characters or fewer.',
+        invalid: 'Enter a valid email address.',
+      },
+      password: {
+        required: 'Enter your password.',
+        tooShort: 'Use at least 10 characters.',
+        tooLong: 'Use 128 characters or fewer.',
+        invalid: 'Use a password between 10 and 128 characters.',
+      },
+    },
+  },
+  admin: {
+    refresh: 'Refresh',
+    error: {
+      title: "We couldn't load this page",
+      retry: 'Try again',
+      loadMore: "We couldn't load more results.",
+    },
+    filters: {
+      apply: 'Apply filters',
+      clear: 'Clear filters',
+    },
+    list: {
+      loadMore: 'Load more',
+      moreAvailable: 'More results are available.',
+      allLoaded: 'All results loaded.',
+    },
+    breadcrumbs: {
+      label: 'Breadcrumb',
+    },
+    status: {
+      user: {
+        active: 'Active',
+        suspended: 'Suspended',
+      },
+      org: {
+        CREATING: 'Creating',
+        STARTING: 'Starting',
+        ONLINE: 'Online',
+        OFFLINE: 'Offline',
+        DELETING: 'Deleting',
+      },
+      config: {
+        applied: 'Applied',
+        pending: 'Pending',
+        rejected: 'Rejected',
+      },
+    },
+    roles: {
+      owner: 'Owner',
+      co_owner: 'Co-owner',
+      member: 'Member',
+    },
+    overview: {
+      meta: {
+        title: 'Platform overview — Proxyma',
+      },
+      title: 'Platform overview',
+      description: 'Platform-wide counts and quick links to users, organisations, and audit.',
+      metrics: {
+        users: 'Users',
+        usersHint: 'All registered accounts',
+        suspended: 'Suspended users',
+        suspendedHint: 'Accounts that cannot sign in',
+        orgs: 'Organisations',
+        orgsHint: 'All organisations',
+        online: 'Online organisations',
+        onlineHint: '{offline} currently offline',
+      },
+      links: {
+        title: 'Administration',
+        description: 'Metadata-only views. Config contents, logs, and ban addresses stay private.',
+        users: 'Users',
+        usersDescription: 'Search accounts and manage suspensions.',
+        orgs: 'Organisations',
+        orgsDescription: 'Inspect organisation state and proxy health.',
+        audit: 'Audit',
+        auditDescription: 'Review platform admin activity.',
+      },
+    },
+    users: {
+      meta: {
+        title: 'Users — Proxyma',
+      },
+      title: 'Users',
+      description: 'Search accounts, review their organisations, and manage suspensions.',
+      search: 'Search',
+      searchPlaceholder: 'Email or display name',
+      status: 'Status',
+      allStatuses: 'All statuses',
+      tableCaption: 'Platform users',
+      columns: {
+        user: 'User',
+        status: 'Status',
+        orgs: 'Organisations',
+        lastSignIn: 'Last sign-in',
+        created: 'Created',
+        actions: 'Actions',
+      },
+      orgSummary: '{count} memberships',
+      ownsOrg: 'Owns an organisation',
+      never: 'Never',
+      view: 'View',
+      loaded: 'Loaded {count} users.',
+      empty: {
+        title: 'No users match these filters',
+        description: 'Try a different search term or clear the status filter.',
+      },
+    },
+    userDetail: {
+      meta: {
+        title: 'User details — Proxyma',
+      },
+      title: 'User details',
+      description: 'Account metadata and organisation memberships.',
+      back: 'Back to users',
+      account: {
+        title: 'Account',
+        id: 'User ID',
+        displayName: 'Display name',
+        email: 'Email',
+        type: 'Account type',
+        platformAdmin: 'Platform administrator',
+        standard: 'Standard account',
+        created: 'Created',
+        lastSignIn: 'Last sign-in',
+        sessions: 'Active sessions',
+        ownedOrg: 'Owned organisation',
+        noOrg: 'No owned organisation',
+      },
+      suspension: {
+        title: 'Suspension',
+        description: 'The account is suspended and cannot sign in.',
+        reason: 'Reason',
+        noReason: 'No reason recorded',
+        at: 'Suspended at',
+        by: 'Suspended by',
+        system: 'Operator',
+      },
+      memberships: {
+        title: 'Organisation memberships',
+        description: 'Every organisation this account belongs to.',
+        caption: 'Organisation memberships',
+        org: 'Organisation',
+        role: 'Role',
+        joined: 'Joined',
+        empty: 'This account has no organisation memberships.',
+      },
+      actions: {
+        title: 'Account actions',
+        description:
+          'Risky actions require your own password and are recorded in the platform audit trail.',
+        accountHeading: 'Account status',
+        suspend: 'Suspend account',
+        unsuspend: 'Unsuspend account',
+        suspendTitle: 'Suspend {name}?',
+        unsuspendTitle: 'Unsuspend {name}?',
+        suspendDescription:
+          'This revokes every session and blocks sign-in immediately. The organisation and its proxy keep running.',
+        unsuspendDescription:
+          'This restores sign-in. Sessions revoked during the suspension stay signed out.',
+        suspendConfirm: 'Suspend account',
+        unsuspendConfirm: 'Unsuspend account',
+        suspendHint:
+          'Suspending signs the user out and blocks sign-in. It does not stop their proxy.',
+        unsuspendHint: 'This account is suspended. Restoring access leaves old sessions revoked.',
+        sessionsHeading: 'Sessions',
+        forceLogout: 'Force sign-out',
+        forceLogoutTitle: 'Force {name} to sign out?',
+        forceLogoutDescription:
+          'This revokes all {count} active sessions. {name} can sign in again immediately.',
+        forceLogoutConfirm: 'Force sign-out',
+        forceLogoutHint: 'Ends every active session without suspending the account.',
+        noSessions: 'This account has no active sessions.',
+      },
+      success: {
+        suspend: 'The account has been suspended.',
+        unsuspend: 'The account has been unsuspended.',
+        forceLogout: 'All sessions for this account have been revoked.',
+      },
+    },
+    orgs: {
+      meta: {
+        title: 'Organisations — Proxyma',
+      },
+      title: 'Organisations',
+      description: 'Inspect organisation state, ownership, and proxy health.',
+      search: 'Search',
+      searchPlaceholder: 'Organisation, owner, or email',
+      state: 'State',
+      allStates: 'All states',
+      tableCaption: 'Platform organisations',
+      columns: {
+        org: 'Organisation',
+        state: 'State',
+        owner: 'Owner',
+        members: 'Members',
+        created: 'Created',
+        actions: 'Actions',
+      },
+      noOwner: 'No owner',
+      view: 'View',
+      loaded: 'Loaded {count} organisations.',
+      empty: {
+        title: 'No organisations match these filters',
+        description: 'Try a different search term or clear the state filter.',
+      },
+    },
+    orgDetail: {
+      meta: {
+        title: 'Organisation details — Proxyma',
+      },
+      title: 'Organisation details',
+      description: 'Organisation metadata and proxy health.',
+      back: 'Back to organisations',
+      readOnly:
+        "This page is read-only. Account actions for the owner are available from the owner's user page.",
+      summary: {
+        title: 'Organisation',
+        id: 'Organisation ID',
+        state: 'State',
+        created: 'Created',
+        owner: 'Owner',
+        ownerActions: 'Suspending or signing out the owner happens on their user page.',
+        openOwner: 'Open owner account',
+      },
+      proxy: {
+        title: 'Proxy',
+        description: 'Reported by the organisation proxy. Config contents and logs stay private.',
+        lastHeartbeat: 'Last heartbeat',
+        never: 'No heartbeat yet',
+        runningVersion: 'Running config version',
+        latestVersion: 'Latest config version',
+        notAvailable: 'Not available',
+        configStatus: 'Config status',
+        activeBans: 'Active bans',
+      },
+      members: {
+        title: 'Members',
+        description: 'Names and roles only.',
+        caption: 'Organisation members',
+        name: 'Member',
+        role: 'Role',
+        empty: 'This organisation has no members.',
+      },
+    },
+    audit: {
+      meta: {
+        title: 'Audit — Proxyma',
+      },
+      title: 'Audit',
+      description: 'Platform admin activity, newest first. This view is read-only.',
+      from: 'From',
+      to: 'To (exclusive)',
+      action: 'Action',
+      allActions: 'All actions',
+      timeHelp:
+        'Times use {timezone}. The start is inclusive and the end is exclusive. Filters are kept in the URL.',
+      invalidRange: 'The end of the range must be after the start.',
+      tableCaption: 'Platform audit events',
+      columns: {
+        time: 'Time',
+        actor: 'Actor',
+        action: 'Action',
+        target: 'Target',
+        summary: 'Summary',
+        sourceIp: 'Source IP',
+        details: 'Details',
+      },
+      actions: {
+        user: {
+          view: 'Viewed user',
+          suspend: 'Suspended user',
+          unsuspend: 'Unsuspended user',
+          force_logout: 'Forced sign-out',
+        },
+        org: {
+          view: 'Viewed organisation',
+        },
+        platform_admin: {
+          grant: 'Granted platform admin',
+          revoke: 'Revoked platform admin',
+        },
+      },
+      systemActor: 'System',
+      noTarget: 'No target',
+      noSourceIp: 'Not recorded',
+      details: 'Details',
+      detailsTitle: 'Audit event',
+      detailsDescription: 'Read-only details of this platform admin action.',
+      detailsFields: {
+        time: 'Time',
+        actor: 'Actor',
+        action: 'Action code',
+        target: 'Target',
+        summary: 'Summary',
+        sourceIp: 'Source IP',
+      },
+      loaded: 'Loaded {count} events.',
+      empty: {
+        title: 'No audit events in this range',
+        description: 'Try a wider time range or clear the action filter.',
+      },
+    },
+    stepUp: {
+      reason: 'Reason',
+      reasonHelp: 'Explain why. Maximum 500 characters.',
+      password: 'Your password',
+      reasonRequired: 'Enter a reason.',
+      passwordRequired: 'Enter your password.',
+      warning: 'This action is recorded in the platform audit trail.',
+    },
+  },
+  errors: {
+    INVALID_CREDENTIALS: 'Email or password is incorrect.',
+    ACCOUNT_SUSPENDED:
+      'This account is suspended. Contact the operator if you think this is a mistake.',
+    RATE_LIMITED: 'Too many attempts. Try again in {seconds} seconds.',
+    EMAIL_TAKEN: 'An account with this email already exists. Sign in instead.',
+    WEAK_PASSWORD:
+      'Choose a stronger password. Use at least 10 characters and avoid common passwords.',
+    VALIDATION_FAILED: 'Check the highlighted fields and try again.',
+    MALFORMED_REQUEST: "We couldn't read that request. Refresh the page and try again.",
+    INTERNAL_ERROR:
+      'Something went wrong on our side. Try again. If it keeps happening, contact the operator.',
+    NETWORK_ERROR: "We couldn't reach Proxyma. Check your connection and try again.",
+    TIMEOUT: 'The request took too long. Try again.',
+    CORS_REJECTED: "This request came from an origin Proxyma doesn't allow.",
+    FORBIDDEN: "You don't have permission to do that.",
+    UNAUTHORIZED: 'Sign in to continue.',
+    INVALID_REFRESH_TOKEN: 'Your session has ended. Sign in again.',
+    SESSION_REFRESH_DELAYED: 'Your session is being refreshed. Try again in a moment.',
+    NOT_FOUND: "This page doesn't exist or you don't have access to it.",
+    INVALID_CURSOR: 'This page of results is no longer valid. Apply the filters again.',
+    INVALID_PARAMETER: "One of the filters isn't valid. Check it and try again.",
+    CONFLICT: 'That change conflicts with the current state. Refresh and try again.',
+    REAUTH_FAILED: 'That password is incorrect. Try again.',
+    ADMIN_CANNOT_TARGET_ADMIN: "Platform admins can't be suspended.",
+    CANNOT_SUSPEND_SELF: "You can't suspend your own account.",
+    UNKNOWN: 'Something went wrong. Try again.',
+  },
+  notFound: {
+    meta: {
+      title: 'Page not found — Proxyma',
+    },
+    title: 'Page not found',
+    description: "This page doesn't exist or you don't have access to it.",
+    back: 'Back to home',
+  },
+}

@@ -1,6 +1,6 @@
 # Security
 
-> Status: design stage. This describes the intended security design. Nothing here is implemented yet, and items are marked **default** where the choice is a sensible starting point rather than a settled decision.
+> Status: design stage. This describes the intended security design. Parts of it, including authentication and refresh-token handling, are already implemented; [`api.md`](api.md) records the exact HTTP behaviour. Items are marked **default** where the choice is a sensible starting point rather than a settled decision.
 
 ## 1. Scope and goals
 
@@ -75,11 +75,19 @@ Everything a proxy sends to the backend (logs, acks, ban events, heartbeats) is 
 |---|---|
 | Passwords | Hashed with **Argon2id** (Spring Security supports it). Never stored or logged in plain text. |
 | Minimum password rules | At least 10 characters, checked against a short list of common passwords. No composition rules. |
-| Tokens | JWT. A short-lived **access token** (about 15 minutes) and a longer-lived **refresh token** (about 7 days), stored hashed server-side so it can be revoked. |
+| Tokens | JWT. A short-lived **access token** (about 15 minutes) and a longer-lived **refresh token**, stored hashed server-side so it can be revoked. Refresh tokens rotate on every use and are bound to an absolute session deadline. |
 | Where tokens live in the browser | **Default:** access token in memory only, refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. This keeps tokens out of reach of injected scripts. |
 | Logout | Revokes the refresh token on the server. |
 | JWT signing | Strong secret or key loaded from the environment, never committed. Tokens carry only user ID and expiry. Roles are **not** put in the token, they're looked up on each request. |
 | Login protection | Rate limiting on login, signup and invite endpoints, per IP and per account. Generic error messages so the response doesn't reveal whether an email exists. |
+
+### Refresh tokens
+
+Refresh tokens are opaque, single-use and stored only as a hash. Every successful refresh rotates the token, marks the old row as replaced and issues the replacement in the same family.
+
+- **Two expiries.** The idle lifetime slides on every rotation (`proxyma.auth.refresh-token-ttl`, default 7 days). The family also has an absolute deadline set at login (`proxyma.auth.session-ttl`, default 30 days), which rotation never extends.
+- **Reuse detection.** A rotated token presented again outside `proxyma.auth.refresh-reuse-grace` (default 30 seconds) is treated as theft. The whole family is revoked and the account's `token_version` is bumped, so access tokens already issued stop working on the next request. Inside the grace window the replay gets `409 REFRESH_IN_PROGRESS` instead, which covers concurrent refreshes from the same browser.
+- **The limit.** Rotation exposes a copied token when both copies are used, but a bearer token cannot be bound to its original holder. An attacker who uses the current copy first and stops the legitimate client from replaying the old one keeps the session until the absolute deadline. The deadline bounds that exposure; it does not remove it.
 
 ### SSE and authentication
 

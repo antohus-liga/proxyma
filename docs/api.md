@@ -8,6 +8,7 @@
 |---|---|
 | Base path | `/api/v1` |
 | Format | JSON, UTF-8, `Content-Type: application/json` |
+| Errors | `application/problem+json`, one shape from every layer (see [section 12](#12-errors)) |
 | Naming | `snake_case` everywhere, including the proxy config, so documents are identical end to end |
 | IDs | UUIDs |
 | Timestamps | ISO 8601 in UTC, for example `2026-10-18T14:30:00Z` |
@@ -81,7 +82,7 @@ Errors: `409` (email taken, with a generic message that doesn't confirm it to at
 { "email": "ana@example.com", "password": "correct horse battery" }
 ```
 
-`200 OK`. The refresh token is set as an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. It is never in the body.
+`200 OK`. The refresh token is set as an `HttpOnly`, `SameSite=Strict` cookie (`Secure` is included unless `proxyma.auth.cookie.secure=false` for plain-HTTP development). It is never in the body.
 
 ```json
 {
@@ -96,17 +97,21 @@ Errors: `401` with the same generic message for an unknown email and a wrong pas
 
 ### `POST /auth/refresh`
 
-Needs the refresh cookie and no body. Returns a new access token (same shape as login) and **rotates** the refresh cookie. If an already-used refresh token is presented again, the whole token family is revoked, which signals theft.
+Needs the refresh cookie and no body. Returns a new access token (same shape as login) and **rotates** the refresh cookie.
+
+Expiry has two layers. The token's idle expiry slides: each rotation renews the stored token and the cookie for a full refresh TTL (`proxyma.auth.refresh-token-ttl`, default 7 days). The token family also has an absolute deadline set at login (`proxyma.auth.session-ttl`, default 30 days) that rotation never extends, so the effective expiry is the earlier of the two.
+
+Clients must still de-duplicate refreshes, but a lost race is no longer fatal. A just-rotated token replayed within `proxyma.auth.refresh-reuse-grace` (default 30 s) returns `409 REFRESH_IN_PROGRESS`; the token family is left intact and the cookie is not cleared, so the winner's response remains valid. A replay after that window is treated as theft: the whole family is revoked, the account's `token_version` is bumped so already-issued access tokens are rejected on their next request, and the response is `401 INVALID_REFRESH_TOKEN` with a cookie-clearing `Set-Cookie`.
 
 ### `POST /auth/logout`
 
-Revokes the refresh token and clears the cookie. `204 No Content`.
+Revokes the refresh token and clears the cookie. `204 No Content`. It is unauthenticated and idempotent: a missing or already-revoked cookie still returns `204` and still clears the cookie.
 
 ### Users
 
 - `GET /users/me` returns `{ id, email, display_name, is_platform_admin }`.
 - `PATCH /users/me` accepts `{ "display_name": "…" }`.
-- `POST /users/me/password` accepts `{ "current_password": "…", "new_password": "…" }`, revokes all refresh tokens and returns `204`.
+- `POST /users/me/password` accepts `{ "current_password": "…", "new_password": "…" }`, revokes all refresh tokens and returns `204`. It also invalidates already-issued access tokens, which are rejected with `401` on their next request.
 
 ## 4. Organisations
 
@@ -465,7 +470,15 @@ The live view is not replayable. After a reconnect, the dashboard sends the last
 
 ## 11. Rate limits on the API
 
-The backend rate limits itself, separately from anything the proxy does. Exceeding a limit returns `429 Too Many Requests` with a `Retry-After` header.
+The backend rate limits itself, separately from anything the proxy does. Every response from a rate-limited endpoint advertises the current budget:
+
+| Header | Meaning |
+|---|---|
+| `RateLimit-Limit` | Requests allowed in the current window |
+| `RateLimit-Remaining` | Requests still allowed in this window |
+| `RateLimit-Reset` | Seconds until the window resets |
+
+Login checks two buckets (per IP and per account) and reports the tighter one. Exceeding a limit returns `429 Too Many Requests` with the same three headers plus `Retry-After`.
 
 | Endpoints | Limit (default) |
 |---|---|
@@ -485,10 +498,11 @@ Errors use the standard `application/problem+json` format, with a stable machine
 ```json
 {
   "type": "about:blank",
-  "title": "Validation failed",
+  "title": "Unprocessable Content",
   "status": 422,
+  "detail": "The request has 2 problems.",
+  "instance": "/api/v1/orgs/5f0c…/config",
   "code": "VALIDATION_FAILED",
-  "detail": "The config has 2 problems.",
   "errors": [
     { "path": "/routes/1/upstream/url", "message": "must be a valid http or https URL" },
     { "path": "/detection/custom_sequences/0/value", "message": "hex value must have an even number of digits" }
@@ -496,27 +510,44 @@ Errors use the standard `application/problem+json` format, with a stable machine
 }
 ```
 
+Every error path — controllers, security filters, CORS rejections — returns this same document in the same key order: `type`, `title`, `status`, `detail`, `instance`, `code`, then `errors` when present. `type` is always `about:blank` for now, so clients can rely on it existing; `instance` is the request path; `title` is the HTTP reason phrase.
+
 `errors[].path` is a JSON Pointer into the submitted document, the same format the proxy uses when it rejects a config. Responses never contain stack traces or internal details.
 
 | Status | Used for |
 |---|---|
 | `400` | Malformed JSON or parameters |
-| `401` | Missing, expired or invalid access token |
-| `403` | The caller is a member but lacks the role (`code` explains which rule), also `ACCOUNT_SUSPENDED` (403 returned on login and refresh), `REAUTH_FAILED`, `ADMIN_CANNOT_TARGET_ADMIN` |
+| `401` | Missing, expired or invalid access token (`UNAUTHORIZED`), including tokens retired by a password change or force-logout |
+| `403` | The caller is a member but lacks the role (`code` explains which rule), also `ACCOUNT_SUSPENDED` (403 returned on login and refresh), `REAUTH_FAILED`, `ADMIN_CANNOT_TARGET_ADMIN`, and `CORS_REJECTED` when the request origin is not in the allowlist |
 | `404` | Unknown resource, **or an org the caller doesn't belong to** |
-| `409` | State conflict, such as `ORG_ALREADY_OWNED`, `ALREADY_MEMBER`, `ALREADY_BANNED`, `BAN_LIMIT_REACHED`, `OWNER_CANNOT_LEAVE`, `CANNOT_SUSPEND_SELF` |
+| `409` | State conflict, such as `ORG_ALREADY_OWNED`, `ALREADY_MEMBER`, `ALREADY_BANNED`, `BAN_LIMIT_REACHED`, `OWNER_CANNOT_LEAVE`, `CANNOT_SUSPEND_SELF`, `REFRESH_IN_PROGRESS` |
 | `410` | `INVITATION_EXPIRED` |
 | `412` / `428` | Config `If-Match` conflict or missing |
 | `422` | Validation failed |
 | `429` | Rate limited |
 | `500` | Unexpected error (logged on the server, generic body) |
 
+Unmatched routes are authenticated before they are routed: an unknown path without a valid access token returns `401`, not `404`, and a method mismatch on a protected path does the same. This avoids anonymous route enumeration. CORS rejections happen before authentication, so a disallowed `Origin` wins over `401`.
+
 ## 13. Admin API
 
 Available only when `PROXYMA_ADMIN_ENABLED=true`, only to platform admins, and
-only from allowed networks. In every other case these routes return `404`.
-Responses contain **metadata only**: no config, logs, ban IPs, org audit
-entries, password hashes or tokens. See
+only from the networks in `PROXYMA_ADMIN_ALLOWED_CIDRS` (when that allowlist is
+set). The namespace is deny-by-default:
+
+| Situation | Response |
+|---|---|
+| Panel disabled, or the source address is outside the allowed networks | `404 NOT_FOUND`, checked **before** the token is examined |
+| Missing, malformed or expired access token | `401 UNAUTHORIZED` |
+| Valid token for a normal user, a missing account, or a suspended account | `404 NOT_FOUND` |
+
+A non-admin therefore cannot tell an enabled panel from a route that does not
+exist. The platform-admin flag and the account status are read from the
+database on every request; neither is stored in the JWT. Admin access tokens
+have a shorter lifetime (5 minutes by default) than normal access tokens.
+
+Responses contain **metadata only**: no config contents, logs, ban IPs, org
+audit entries, password hashes or tokens. See
 [`proxyma-security.md`](proxyma-security.md#14-platform-administration).
 
 | Method | Path | Purpose | Audited |
@@ -531,6 +562,16 @@ entries, password hashes or tokens. See
 | GET | `/admin/orgs/{org_id}` | One org's details | Yes (view) |
 | GET | `/admin/audit` | The platform audit trail | No |
 
+Lists are ordered newest first. They accept `limit` (1–200, default 50) and an
+opaque `cursor` from the previous response's `next_cursor`. A malformed cursor
+returns `400 INVALID_CURSOR`.
+
+The admin API has two per-admin rate limits: 120 requests per minute for every
+admin route, and 10 per minute for the risky actions (`suspend` and
+`force-logout`). Successful responses carry `RateLimit-Limit`,
+`RateLimit-Remaining` and `RateLimit-Reset`; a rejected request returns
+`429 RATE_LIMITED` with `Retry-After`. Both limits are configurable.
+
 ### `GET /admin/stats`
 
 ```json
@@ -540,9 +581,14 @@ entries, password hashes or tokens. See
 }
 ```
 
+`orgs.offline` is `total - online`, so every org that is not currently `ONLINE`
+(including `CREATING`, `STARTING` and `DELETING`) is counted as offline.
+
 ### `GET /admin/users`
 
-Query: `q` (matches email or display name), `status` (`active` or `suspended`), `limit`, `cursor`.
+Query: `q` (case-insensitive match on email or display name), `status` (`active`
+or `suspended`), `limit`, `cursor`. An unknown `status` returns
+`400 INVALID_PARAMETER`.
 
 ```json
 {
@@ -583,7 +629,19 @@ Query: `q` (matches email or display name), `status` (`active` or `suspended`), 
 }
 ```
 
-Viewing this endpoint is recorded in the platform audit trail.
+When the account is suspended, `suspension` is an object instead of `null`:
+
+```json
+{
+  "reason": "Repeated abuse reports",
+  "suspended_at": "2026-10-18T14:35:12Z",
+  "suspended_by": { "user_id": "a21e…", "display_name": "Platform Admin" }
+}
+```
+
+`suspended_by` is `null` when the account was suspended by an operator rather
+than through the admin API. Viewing this endpoint is recorded as `user.view` in
+the platform audit trail.
 
 ### `POST /admin/users/{user_id}/suspend`
 
@@ -591,19 +649,37 @@ Viewing this endpoint is recorded in the platform audit trail.
 { "reason": "Repeated abuse reports", "password": "<admin's own password>" }
 ```
 
-`200 OK` with the updated user. Effects are described in [`proxyma-security.md`](proxyma-security.md#14-platform-administration). Errors: `403 REAUTH_FAILED`, `403 ADMIN_CANNOT_TARGET_ADMIN`, `409 CANNOT_SUSPEND_SELF`, `422` for a missing reason.
+`200 OK` with the updated user (including the new `suspension` object). The
+account is marked suspended, its refresh tokens are revoked and its
+`token_version` is bumped, so current access tokens stop working on the next
+request. Orgs keep running, and each org the user belongs to gets a
+`member.suspend` entry in its own audit trail with the actor shown as a platform
+administrator.
+
+Errors: `403 REAUTH_FAILED` (wrong step-up password), `403
+ADMIN_CANNOT_TARGET_ADMIN`, `409 CANNOT_SUSPEND_SELF`, `422` for a missing or
+blank reason.
 
 ### `POST /admin/users/{user_id}/unsuspend`
 
-`{ "reason": "Resolved after contact" }`. Returns the updated user.
+`{ "reason": "Resolved after contact" }`. Returns the updated user with
+`suspension: null`. The account becomes active again, its `token_version` is
+bumped so pre-suspension tokens stay dead, and each affected org gets a
+`member.unsuspend` audit entry. A reason is required (`422` otherwise).
 
 ### `POST /admin/users/{user_id}/force-logout`
 
-`{ "reason": "Possible account compromise", "password": "…" }`. Revokes all refresh tokens and closes live streams. Returns `204`.
+`{ "reason": "Possible account compromise", "password": "…" }`. Revokes all
+refresh tokens and bumps `token_version`, so the user's current access token
+stops working immediately. Returns `204`. This action may target another
+platform admin. `403 REAUTH_FAILED` for a wrong password and `422` for a missing
+reason.
 
 ### `GET /admin/orgs`
 
-Query: `q` (org name or owner), `state`, `limit`, `cursor`.
+Query: `q` (case-insensitive match on org name, owner display name or owner
+email), `state` (`CREATING`, `STARTING`, `ONLINE`, `OFFLINE` or `DELETING`),
+`limit`, `cursor`. An unknown `state` returns `400 INVALID_PARAMETER`.
 
 ```json
 {
@@ -620,6 +696,8 @@ Query: `q` (org name or owner), `state`, `limit`, `cursor`.
   "next_cursor": null
 }
 ```
+
+`owner` is `null` for an org without an owner membership.
 
 ### `GET /admin/orgs/{org_id}`
 
@@ -644,11 +722,63 @@ Query: `q` (org name or owner), `state`, `limit`, `cursor`.
 }
 ```
 
-The response has **no** config, logs, ban IPs or org audit entries. Viewing it is recorded in the platform audit trail.
+`config_status` is `applied` when the proxy has acknowledged the latest config
+version, `rejected` when the latest version was rejected, and `pending`
+otherwise (including an org that has no config yet). `active_ban_count` counts
+bans that are not removed and not expired. The response has **no** config
+contents, logs, ban IPs or org audit entries. Viewing it is recorded as
+`org.view` in the platform audit trail.
 
 ### `GET /admin/audit`
 
-Query: `from`, `to`, `admin_user_id`, `action`, `limit`, `cursor`. Returns the platform audit entries, newest first.
+Query: `from`, `to` (ISO-8601 instants; `from` is inclusive and `to` is
+exclusive), `admin_user_id`, `action`, `limit`, `cursor`. Returns platform audit
+entries newest first. `from` after `to` returns `400 INVALID_PARAMETER`.
+
+```json
+{
+  "items": [
+    {
+      "id": "9d2b…",
+      "timestamp": "2026-10-18T14:35:12Z",
+      "admin": { "user_id": "a21e…", "display_name": "Platform Admin" },
+      "action": "user.suspend",
+      "target": { "type": "user", "id": "5f0c…" },
+      "summary": "Suspended ana@example.com: Repeated abuse reports",
+      "source_ip": "203.0.113.10"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+`target` is `null` when an action has no target. `admin` is `null` for entries
+written by the server-side `grant-admin` / `revoke-admin` commands, where the
+actor is the host operator rather than an authenticated admin; `source_ip` is
+also `null` for those entries.
+
+The action names are `user.view`, `user.suspend`, `user.unsuspend`,
+`user.force_logout`, `org.view`, `platform_admin.grant` and
+`platform_admin.revoke`. This endpoint reads only the platform trail; an org's
+own audit entries are never exposed through it, and reading the audit trail is
+not itself audited.
+
+### Operator commands
+
+Platform-admin status can only be changed on the server, never through the API:
+
+```bash
+cd backend
+./gradlew bootRun --args='grant-admin ana@example.com'
+./gradlew bootRun --args='revoke-admin ana@example.com'
+```
+
+The command starts the application without a web server, applies migrations,
+changes the flag and writes a `platform_admin.grant` or `platform_admin.revoke`
+entry to `platform_audit`. The command is idempotent: when the account is
+already in the requested state it changes nothing and writes no audit entry. A
+change bumps the user's `token_version`, so an existing token cannot silently
+acquire or keep admin powers.
 
 ## 14. Not in the MVP
 

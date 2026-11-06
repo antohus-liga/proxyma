@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: ./gradlew build --no-daemon --console=plain
+
+      # Testcontainers-based classes are annotated with
+      # @Testcontainers(disabledWithoutDocker = true), so a broken Docker setup
+      # would otherwise turn into a green run with no integration coverage.
+      - name: Fail if any test was skipped
+        run: |
+          python3 - <<'PY'
+          import glob
+          import sys
+          import xml.etree.ElementTree as ET
+
+          reports = sorted(glob.glob("build/test-results/test/TEST-*.xml"))
+          if not reports:
+              print("::error::No test results were produced.")
+              sys.exit(1)
+
+          skipped = []
+          for path in reports:
+              root = ET.parse(path).getroot()
+              count = int(root.get("skipped", "0"))
+              if count:
+                  skipped.append(f"{path} ({count})")
+
+          if skipped:
+              print("::error::Some tests were skipped; integration tests require Docker.")
+              for entry in skipped:
+                  print(f"  {entry}")
+              sys.exit(1)
+
+          print(f"All {len(reports)} test classes ran without skips.")
+          PY
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            backend/build/reports/tests/test
+            backend/build/test-results/test
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,353 @@
+package org.proxyma.backend
+
+import jakarta.servlet.http.Cookie
+import org.hamcrest.Matchers.containsString
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.proxyma.backend.auth.RefreshTokenRepository
+import org.proxyma.backend.user.UserRepository
+import org.proxyma.backend.user.UserStatus
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.MvcResult
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.util.UUID
+
+class AuthIntegrationTest : IntegrationTestBase() {
+
+	@Autowired
+	private lateinit var mockMvc: MockMvc
+
+	@Autowired
+	private lateinit var users: UserRepository
+
+	@Autowired
+	private lateinit var refreshTokens: RefreshTokenRepository
+
+	@BeforeEach
+	fun cleanDatabase() {
+		refreshTokens.deleteAll()
+		users.deleteAll()
+	}
+
+	@Test
+	fun `register creates a user and stores an argon2 hash`() {
+		val email = uniqueEmail()
+
+		mockMvc.perform(
+			post("/api/v1/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","display_name":"Ana","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isCreated)
+			.andExpect(jsonPath("$.email").value(email))
+			.andExpect(jsonPath("$.display_name").value("Ana"))
+			.andExpect(jsonPath("$.is_platform_admin").value(false))
+
+		val user = users.findByEmail(email)
+		org.junit.jupiter.api.Assertions.assertNotNull(user)
+		org.junit.jupiter.api.Assertions.assertTrue(user!!.passwordHash.startsWith("{argon2}"))
+	}
+
+	@Test
+	fun `register rejects duplicate emails and weak passwords`() {
+		val email = uniqueEmail()
+		register(email)
+
+		mockMvc.perform(
+			post("/api/v1/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","display_name":"Ana","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("EMAIL_TAKEN"))
+
+		mockMvc.perform(
+			post("/api/v1/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"${uniqueEmail()}","display_name":"Ana","password":"password"}"""),
+		)
+			.andExpect(status().`is`(422))
+			.andExpect(jsonPath("$.code").value("WEAK_PASSWORD"))
+	}
+
+	@Test
+	fun `login uses a generic error for unknown emails and wrong passwords`() {
+		val email = uniqueEmail()
+		register(email)
+
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","password":"wrong password"}"""),
+		)
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"nobody@example.com","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+	}
+
+	@Test
+	fun `access token authenticates and protected endpoints reject missing tokens`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+
+		mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer ${accessToken(login)}"))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.email").value(email))
+
+		mockMvc.perform(get("/api/v1/users/me"))
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+			// Filter-layer errors use the same document as MVC errors.
+			.andExpect(jsonPath("$.type").value("about:blank"))
+			.andExpect(jsonPath("$.instance").value("/api/v1/users/me"))
+			.andExpect(jsonPath("$.status").value(401))
+			.andExpect(jsonPath("$.title").value("Unauthorized"))
+	}
+
+	@Test
+	fun `mvc errors carry the same envelope as filter errors`() {
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"nobody@example.com","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.type").value("about:blank"))
+			.andExpect(jsonPath("$.instance").value("/api/v1/auth/login"))
+			.andExpect(jsonPath("$.status").value(401))
+			.andExpect(jsonPath("$.title").value("Unauthorized"))
+			.andExpect(jsonPath("$.detail").isNotEmpty)
+			.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+	}
+
+	@Test
+	fun `refresh rotates the token and a concurrent replay does not revoke the family`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val firstCookie = refreshCookie(login)
+
+		val refreshed = mockMvc.perform(
+			post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, firstCookie)),
+		)
+			.andExpect(status().isOk)
+			.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString(COOKIE_NAME)))
+			.andReturn()
+
+		val secondCookie = refreshCookie(refreshed)
+		org.junit.jupiter.api.Assertions.assertNotEquals(firstCookie, secondCookie)
+
+		// The losing side of a race is rejected without killing the family, so
+		// the winner's cookie keeps working.
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, firstCookie)))
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("REFRESH_IN_PROGRESS"))
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, secondCookie)))
+			.andExpect(status().isOk)
+	}
+
+	@Test
+	fun `refresh slides the refresh token expiry forward`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val userId = users.findByEmail(email)!!.id
+		val firstExpiry = refreshTokens.findAll().filter { it.userId == userId }.single().expiresAt
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, refreshCookie(login))))
+			.andExpect(status().isOk)
+
+		val expiries = refreshTokens.findAll().filter { it.userId == userId }.map { it.expiresAt }
+		org.junit.jupiter.api.Assertions.assertEquals(2, expiries.size)
+		org.junit.jupiter.api.Assertions.assertTrue(
+			expiries.max() > firstExpiry,
+			"a rotated token should outlive the one it replaced",
+		)
+	}
+
+	@Test
+	fun `refresh expiry is capped by the absolute session deadline`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val userId = users.findByEmail(email)!!.id
+
+		val token = refreshTokens.findAll().single { it.userId == userId }
+		val deadline = java.time.Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+		token.familyExpiresAt = deadline
+		refreshTokens.save(token)
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, refreshCookie(login))))
+			.andExpect(status().isOk)
+
+		val replacement = refreshTokens.findAll()
+			.single { it.userId == userId && it.revokedAt == null }
+		// The refresh TTL is seven days, but the family deadline is one hour
+		// away, so both the replacement and its cookie must stop there.
+		org.junit.jupiter.api.Assertions.assertEquals(deadline.toEpochMilli(), replacement.familyExpiresAt.toEpochMilli())
+		org.junit.jupiter.api.Assertions.assertEquals(deadline.toEpochMilli(), replacement.expiresAt.toEpochMilli())
+	}
+
+	@Test
+	fun `refresh is rejected after the absolute session deadline`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val userId = users.findByEmail(email)!!.id
+
+		val token = refreshTokens.findAll().single { it.userId == userId }
+		token.familyExpiresAt = java.time.Instant.now().minusSeconds(1)
+		token.expiresAt = java.time.Instant.now().plusSeconds(3600)
+		refreshTokens.save(token)
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, refreshCookie(login))))
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"))
+
+		org.junit.jupiter.api.Assertions.assertTrue(
+			refreshTokens.findAll().filter { it.userId == userId }.all { it.revokedAt != null },
+			"an expired family should be revoked as a whole",
+		)
+	}
+
+	@Test
+	fun `logout revokes the refresh token`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val cookie = refreshCookie(login)
+
+		mockMvc.perform(post("/api/v1/auth/logout").cookie(Cookie(COOKIE_NAME, cookie)))
+			.andExpect(status().isNoContent)
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, cookie)))
+			.andExpect(status().isUnauthorized)
+	}
+
+	@Test
+	fun `changing the password revokes every refresh token and changes the password`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val cookie = refreshCookie(login)
+		val oldAccessToken = accessToken(login)
+
+		mockMvc.perform(
+			post("/api/v1/users/me/password")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer $oldAccessToken")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"current_password":"$VALID_PASSWORD","new_password":"$NEW_PASSWORD"}"""),
+		)
+			.andExpect(status().isNoContent)
+
+		// The access token was valid seconds ago, but its `tv` claim is stale now.
+		mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer $oldAccessToken"))
+			.andExpect(status().isUnauthorized)
+			.andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+
+		mockMvc.perform(post("/api/v1/auth/refresh").cookie(Cookie(COOKIE_NAME, cookie)))
+			.andExpect(status().isUnauthorized)
+
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isUnauthorized)
+
+		login(email, NEW_PASSWORD)
+	}
+
+	@Test
+	fun `a suspended user cannot log in or use an existing access token`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+		val token = accessToken(login)
+
+		val user = users.findByEmail(email)!!
+		user.status = UserStatus.SUSPENDED
+		user.suspendedAt = java.time.Instant.now()
+		users.save(user)
+
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","password":"$VALID_PASSWORD"}"""),
+		)
+			.andExpect(status().isForbidden)
+			.andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"))
+
+		mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer $token"))
+			.andExpect(status().isForbidden)
+			.andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"))
+	}
+
+	@Test
+	fun `profile can be updated`() {
+		val email = uniqueEmail()
+		register(email)
+		val login = login(email)
+
+		mockMvc.perform(
+			patch("/api/v1/users/me")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer ${accessToken(login)}")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"display_name":"New Name"}"""),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.display_name").value("New Name"))
+
+		mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer ${accessToken(login)}"))
+			.andExpect(jsonPath("$.display_name").value("New Name"))
+	}
+
+	private fun register(email: String) {
+		mockMvc.perform(
+			post("/api/v1/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","display_name":"Ana","password":"$VALID_PASSWORD"}"""),
+		).andExpect(status().isCreated)
+	}
+
+	private fun login(email: String, password: String = VALID_PASSWORD): MvcResult =
+		mockMvc.perform(
+			post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"email":"$email","password":"$password"}"""),
+		).andExpect(status().isOk).andReturn()
+
+	private fun accessToken(result: MvcResult): String =
+		com.jayway.jsonpath.JsonPath.read(result.response.contentAsString, "$.access_token")
+
+	private fun refreshCookie(result: MvcResult): String {
+		val setCookie = result.response.getHeader(HttpHeaders.SET_COOKIE)
+			?: error("Response did not set a refresh cookie")
+		return setCookie.substringAfter("$COOKIE_NAME=").substringBefore(";")
+	}
+
+	private fun uniqueEmail() = "user-${UUID.randomUUID()}@example.com"
+
+	companion object {
+		private const val COOKIE_NAME = "proxyma_refresh"
+		private const val VALID_PASSWORD = "correct horse battery staple"
+		private const val NEW_PASSWORD = "another very long passphrase"
+	}
+}
