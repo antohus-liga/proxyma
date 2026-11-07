@@ -17,7 +17,7 @@ Kotlin backend.
 | Topic | Contract |
 |---|---|
 | Base path | `/api/v1` |
-| Default dev URL | `http://localhost:8080` (Spring Boot default) |
+| Default dev URL | `http://localhost:8080` (Spring Boot default; override with `VITE_BACKEND_URL`) |
 | Request body | JSON, UTF-8, `Content-Type: application/json` |
 | Response body | JSON, `snake_case` field names |
 | Error body | `application/problem+json` with a stable `code` |
@@ -66,7 +66,8 @@ logs, org audit, stream tickets, SSE. Do not build against those paths from
 The backend allows **no browser origins by default**. Pick one of these:
 
 1. **Recommended:** serve the frontend through a same-origin dev proxy (Vite
-   `server.proxy`) to `http://localhost:8080`. No CORS configuration needed.
+   `server.proxy`) to `http://localhost:8080` by default. Set `VITE_BACKEND_URL`
+   in `frontend/.env` to proxy to a different host. No CORS configuration needed.
 2. Set `PROXYMA_CORS_ALLOWED_ORIGINS=http://localhost:5173` on the backend.
 
 CORS rules:

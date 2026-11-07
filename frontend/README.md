@@ -28,8 +28,15 @@ bun dev
 
 ## Local API development
 
-Vite proxies `/api` to the backend at `http://localhost:8080`, so the browser sees same-origin
-requests and the refresh cookie is sent normally.
+Vite proxies `/api` to the backend, so the browser sees same-origin requests and the refresh
+cookie is sent normally. The proxy target defaults to `http://localhost:8080`.
+
+To point it at another host, copy `.env.example` to `.env` and set `VITE_BACKEND_URL`, for
+example `http://192.168.1.100:8080` when the backend runs on another machine. Restart
+`bun dev` after changing the value.
+
+The backend binds `127.0.0.1` by default. To reach it over the LAN, set
+`PROXYMA_SERVER_ADDRESS=0.0.0.0` in `backend/.env` before starting it.
 
 The backend marks the refresh cookie `Secure` by default. Because local development uses plain
 HTTP, refreshing a session can fail unless secure cookies are disabled for the backend process,
