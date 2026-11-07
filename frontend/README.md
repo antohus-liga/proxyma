@@ -38,6 +38,11 @@ example `http://192.168.1.100:8080` when the backend runs on another machine. Re
 The backend binds `127.0.0.1` by default. To reach it over the LAN, set
 `PROXYMA_SERVER_ADDRESS=0.0.0.0` in `backend/.env` before starting it.
 
+The proxy also sets `X-Forwarded-For`, so the backend sees the browser's address for
+per-IP rate limits, admin network checks and audit entries. It trusts that header only
+from loopback by default; if Vite runs on a different host, add its address to
+`PROXYMA_HTTP_TRUSTED_PROXIES` in `backend/.env`.
+
 The backend marks the refresh cookie `Secure` by default. Because local development uses plain
 HTTP, refreshing a session can fail unless secure cookies are disabled for the backend process,
 for example:

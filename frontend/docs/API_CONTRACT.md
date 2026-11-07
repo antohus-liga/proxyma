@@ -70,6 +70,13 @@ The backend allows **no browser origins by default**. Pick one of these:
    in `frontend/.env` to proxy to a different host. No CORS configuration needed.
 2. Set `PROXYMA_CORS_ALLOWED_ORIGINS=http://localhost:5173` on the backend.
 
+The backend uses the client address for per-IP rate limits, admin source-network
+checks and audit `source_ip`. A request is attributed to its connection address
+unless it arrives from a trusted reverse proxy (loopback by default; configure
+`PROXYMA_HTTP_TRUSTED_PROXIES`), in which case the rightmost untrusted
+`X-Forwarded-For` entry is used. The Vite dev proxy forwards that header
+automatically.
+
 CORS rules:
 
 - Credentials are allowed (`allowCredentials = true`).

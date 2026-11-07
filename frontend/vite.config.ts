@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: backendTarget,
           changeOrigin: false,
+          // Append the browser's address to X-Forwarded-For so the backend can
+          // apply its per-IP rate limits, admin network checks and audit logging
+          // to the real client instead of the dev server.
+          xfwd: true,
         },
       },
     },

@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered
 import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -91,6 +92,15 @@ class SecurityConfig {
 	@Bean
 	fun corsFilterRegistration(filter: CorsFilter): FilterRegistrationBean<CorsFilter> =
 		FilterRegistrationBean(filter).apply { isEnabled = false }
+
+	/**
+	 * Resolves the client address before the security chain runs, so every
+	 * downstream filter, rate limiter and audit entry sees the real client when
+	 * the request arrives through a trusted reverse proxy such as Vite.
+	 */
+	@Bean
+	fun clientIpFilterRegistration(filter: ClientIpFilter): FilterRegistrationBean<ClientIpFilter> =
+		FilterRegistrationBean(filter).apply { order = Ordered.HIGHEST_PRECEDENCE }
 
 	/**
 	 * The admin filter is a `Filter` bean too. It must only run inside the

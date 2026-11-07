@@ -82,4 +82,44 @@ class AdminCidrIntegrationTest : AdminIntegrationTestBase() {
 			.andExpect(status().isNotFound)
 			.andExpect(jsonPath("$.code").value("NOT_FOUND"))
 	}
+
+	@Test
+	fun `a trusted proxy can forward an allowed client address`() {
+		val token = adminToken()
+
+		mockMvc.perform(
+			get("/api/v1/admin/stats")
+				.from("127.0.0.1")
+				.header("X-Forwarded-For", "10.1.2.3")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+		).andExpect(status().isOk)
+	}
+
+	@Test
+	fun `a trusted proxy cannot forward a disallowed client address`() {
+		val token = adminToken()
+
+		mockMvc.perform(
+			get("/api/v1/admin/stats")
+				.from("127.0.0.1")
+				.header("X-Forwarded-For", "203.0.113.5")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+		)
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code").value("NOT_FOUND"))
+	}
+
+	@Test
+	fun `an untrusted peer cannot spoof a forwarded address`() {
+		val token = adminToken()
+
+		mockMvc.perform(
+			get("/api/v1/admin/stats")
+				.from("203.0.113.5")
+				.header("X-Forwarded-For", "10.1.2.3")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+		)
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code").value("NOT_FOUND"))
+	}
 }

@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component
 /**
  * Optional source-network allowlist for the admin API.
  *
- * The remote address is taken from the connection, not from a forwarded
- * header: a client must not be able to opt itself into the allowlist.
+ * The address comes from [org.proxyma.backend.security.ClientIpFilter]: the
+ * connection address, unless the connection is from a configured trusted proxy,
+ * in which case the forwarded client address is used. A direct client cannot
+ * opt itself into the allowlist by sending X-Forwarded-For.
  */
 @Component
 class AdminNetworkMatcher(properties: ProxymaProperties) {

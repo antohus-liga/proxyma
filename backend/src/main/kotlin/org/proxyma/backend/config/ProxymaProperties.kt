@@ -7,7 +7,18 @@ data class ProxymaProperties(
 	val jwt: JwtProperties = JwtProperties(),
 	val auth: AuthProperties = AuthProperties(),
 	val cors: CorsProperties = CorsProperties(),
+	val http: HttpProperties = HttpProperties(),
 	val admin: AdminProperties = AdminProperties(),
+)
+
+data class HttpProperties(
+	/**
+	 * Reverse proxies whose X-Forwarded-For header is trusted. The default is
+	 * loopback, which covers the Vite dev proxy; add the proxy's address when it
+	 * runs on another machine. Never add a network that clients can connect from
+	 * directly.
+	 */
+	val trustedProxies: List<String> = listOf("127.0.0.1/32", "::1/128"),
 )
 
 data class JwtProperties(
