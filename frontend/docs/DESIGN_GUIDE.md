@@ -777,10 +777,10 @@ export default {
 |---|---|
 | Sidebar | 232px wide, full height, `--px-color-canvas`, right border `--px-color-border-subtle`, 16px inner padding |
 | Sidebar header | Wordmark at top, 20px high, 16px padding; org switcher below with 8px gap. Do not repeat the page-context marker here; the top bar carries it |
-| Navigation item | 36px high, 8px horizontal padding, 6px radius, 16px icon + 10px gap, 14px/500 label |
+| Navigation item | 36px high, 12px horizontal padding, 6px radius, 16px icon + 10px gap, 14px/500 label |
 | Active navigation | `--px-color-accent-subtle` background, `--px-color-accent` text and icon, 2px left indicator |
 | Hover navigation | `--px-color-surface-subtle` background, primary text |
-| Sidebar footer | Settings link, then Sign out; preferences live in Settings → General. Separated by a 1px rule |
+| Sidebar footer | Settings link, then Sign out; preferences live in Settings → General. Separated by a 1px rule. Sign out reuses the navigation item footprint at ghost emphasis; do not shrink it below 36px or a 14px label |
 | Admin section | Below a 1px rule at the bottom, visually separated, shield icon and section label, only when `is_platform_admin` is true |
 | Top bar | 56px high, sticky, `--px-color-canvas`, bottom border, 16–24px horizontal padding |
 | Content | `--px-content-max`, 32px top padding, 48px bottom padding |
@@ -3319,3 +3319,4 @@ The UI maps `problem+json.code` to a message key. It never displays the raw code
 | 1.1 | 2 November 2026 | Homepage: dark-mode globe inverts its ink to a warm light tone on the canvas; the paper plate is removed. |
 | 1.2 | 6 November 2026 | Add the `pt-PT` catalogue, locale detection and persistence, and the language switcher in the public footer, auth card, and app sidebar. |
 | 1.3 | 6 November 2026 | Replace the Account destination with Settings; move preferences into Settings → General and place Settings directly above Sign out in the sidebar footer. |
+| 1.4 | 10 November 2026 | Align Sign out with the navigation item footprint in the sidebar footer (36px height, 14px label, 16px icon, 12px gutter); correct the documented navigation gutter from 8px to 12px. |

@@ -81,14 +81,13 @@ async function onSignOut() {
 
       <PxButton
         variant="ghost"
-        size="sm"
         full-width
         :loading="signingOut"
         class="app-sidebar__sign-out"
         @click="onSignOut"
       >
         <template #icon>
-          <LogOut :size="15" aria-hidden="true" />
+          <LogOut :size="16" aria-hidden="true" />
         </template>
         {{ t('nav.signOut') }}
       </PxButton>
@@ -171,7 +170,10 @@ async function onSignOut() {
   border-block-start: var(--px-border-width) solid var(--px-color-border-subtle);
 }
 
-.app-sidebar__sign-out {
+.app-sidebar__footer .app-sidebar__sign-out {
+  min-height: 36px;
+  gap: 10px;
+  padding-inline: var(--px-space-3);
   justify-content: flex-start;
 }
 </style>
